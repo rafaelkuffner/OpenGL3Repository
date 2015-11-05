@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Bitmap.cpp">
+      <Filter>source\tdogl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Camera.cpp">
+      <Filter>source\tdogl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\common\thirdparty\glew\src\glew.c">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="platform_windows.cpp">
+      <Filter>common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\PCLShader\source\main.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Program.cpp">
+      <Filter>source\tdogl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Shader.cpp">
+      <Filter>source\tdogl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Texture.cpp">
+      <Filter>source\tdogl</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Bitmap.h">
+      <Filter>source\tdogl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Camera.h">
+      <Filter>source\tdogl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Program.h">
+      <Filter>source\tdogl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Shader.h">
+      <Filter>source\tdogl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Texture.h">
+      <Filter>source\tdogl</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\source\PCLShader\resources\vertex-shader.vert">
+      <Filter>resources</Filter>
+    </Text>
+    <Text Include="..\..\source\PCLShader\resources\fragment-shader.frag">
+      <Filter>resources</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{2f6f119b-d9f0-4a2e-8587-94d1796c8c95}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\tdogl">
+      <UniqueIdentifier>{7a259c8d-9493-4663-acd0-6951fba5e422}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{180c3ec5-0768-4eb4-a134-e2d0118d8ed6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{73cc1e75-3a01-4b2b-a54e-32439ee2ab3d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\source\PCLShader\resources\wooden-crate.jpg">
+      <Filter>resources</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\source\PCLShader\resources\geometry-shader.geom">
+      <Filter>resources</Filter>
+    </None>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{1415B383-DC4E-4814-A8D8-3C7CF63D3991}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>
+    </RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v100</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v100</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="shared_build_settings.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="shared_build_settings.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\PCL\PCL 1.6.0\3rdParty\VTK\include\vtk-5.8;D:\PCL\PCL 1.6.0\3rdParty\FLANN\include;D:\PCL\PCL 1.8.0\include\pcl-1.8;D:\Software\eigen;D:\PCL\PCL 1.6.0\3rdParty\Boost\include</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>D:\PCL\PCL 1.6.0\3rdParty\Boost\lib;D:\PCL\PCL 1.8.0\lib;D:\PCL\PCL 1.6.0\3rdParty\VTK\lib\vtk-5.8</AdditionalLibraryDirectories>
+      <AdditionalDependencies>pcl_io_debug.lib;pcl_io_ply_debug.lib;pcl_common_debug.lib;pcl_search_debug.lib;pcl_features_debug.lib;pcl_kdtree_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\PCL\PCL 1.6.0\3rdParty\VTK\include\vtk-5.8;D:\Software\Flann\include\;D:\PCL\PCL 1.8.0\include\pcl-1.8;D:\Software\eigen;D:\PCL\PCL 1.6.0\3rdParty\Boost\include</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>D:\PCL\PCL 1.6.0\3rdParty\Boost\lib;D:\PCL\PCL 1.8.0\lib;D:\PCL\PCL 1.6.0\3rdParty\VTK\lib\vtk-5.8</AdditionalLibraryDirectories>
+      <AdditionalDependencies>pcl_io_release.lib;pcl_io_ply_release.lib;pcl_common_release.lib;pcl_search_release.lib;pcl_features_release.lib;pcl_kdtree_release.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\source\PCLShader\source\main.cpp" />
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Bitmap.cpp" />
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Camera.cpp" />
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Program.cpp" />
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Shader.cpp" />
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\Texture.cpp" />
+    <ClCompile Include="..\..\source\common\thirdparty\glew\src\glew.c" />
+    <ClCompile Include="platform_windows.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Bitmap.h" />
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Camera.h" />
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Program.h" />
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Shader.h" />
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\Texture.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\source\PCLShader\resources\fragment-shader.frag" />
+    <Text Include="..\..\source\PCLShader\resources\vertex-shader.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\source\PCLShader\resources\wooden-crate.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\source\PCLShader\resources\geometry-shader.geom" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
