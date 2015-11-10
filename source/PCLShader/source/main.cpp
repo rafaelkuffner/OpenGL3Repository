@@ -56,6 +56,7 @@ tdogl::Camera gCamera;
 GLuint gVAO = 0;
 GLfloat gDegreesRotated = 0.0f;
 GLsizei numElements;
+glm::vec2 lastMousePos(0, 0);
 
 // loads the vertex shader and fragment shader, and links them to make the global gProgram
 static void LoadShaders() {
@@ -225,9 +226,15 @@ void Update(float secondsElapsed) {
     //rotate camera based on mouse movement
     const float mouseSensitivity = 0.1f;
     double mouseX, mouseY;
-    glfwGetCursorPos(gWindow, &mouseX, &mouseY);
-    gCamera.offsetOrientation(mouseSensitivity * (float)mouseY, mouseSensitivity * (float)mouseX);
-    glfwSetCursorPos(gWindow, 0, 0); //reset the mouse, so it doesn't go out of the window
+	int state = glfwGetMouseButton(gWindow, GLFW_MOUSE_BUTTON_LEFT);
+	glfwGetCursorPos(gWindow, &mouseX, &mouseY);
+	if (state == GLFW_PRESS){
+		double deltaY = mouseY - lastMousePos.y;
+		double deltaX = mouseX - lastMousePos.x;
+		gCamera.offsetOrientation(mouseSensitivity * (float)deltaY, mouseSensitivity * (float)deltaX);
+	}
+	lastMousePos.x = mouseX;
+	lastMousePos.y = mouseY;
 
     //increase or decrease field of view based on mouse wheel
     const float zoomSensitivity = -0.2f;
@@ -247,6 +254,10 @@ void OnError(int errorCode, const char* msg) {
     throw std::runtime_error(msg);
 }
 
+void OnResize(GLFWwindow* window, int width, int height){
+	glViewport(0, 0, width, height);
+	gCamera.setViewportAspectRatio((float)width / (float)height);
+}
 // the program starts here
 void AppMain() {
     // initialise GLFW
@@ -265,11 +276,11 @@ void AppMain() {
         throw std::runtime_error("glfwCreateWindow failed. Can your hardware handle OpenGL 3.2?");
 
     // GLFW settings
-    glfwSetInputMode(gWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  //  glfwSetInputMode(gWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPos(gWindow, 0, 0);
     glfwSetScrollCallback(gWindow, OnScroll);
-    glfwMakeContextCurrent(gWindow);
-
+	glfwMakeContextCurrent(gWindow);
+	glfwSetFramebufferSizeCallback(gWindow, OnResize);
     // initialise GLEW
     glewExperimental = GL_TRUE; //stops glew crashing on OSX :-/
     if(glewInit() != GLEW_OK)
@@ -305,6 +316,7 @@ void AppMain() {
 
     // setup gCamera
     gCamera.setPosition(glm::vec3(0,0,2));
+	
     gCamera.setViewportAspectRatio(SCREEN_SIZE.x / SCREEN_SIZE.y);
 
     // run while the window is open
