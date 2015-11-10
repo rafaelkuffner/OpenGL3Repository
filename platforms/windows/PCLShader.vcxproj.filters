@@ -74,5 +74,8 @@
     <None Include="..\..\source\PCLShader\resources\geometry-shader.geom">
       <Filter>resources</Filter>
     </None>
+    <None Include="..\..\source\PCLShader\resources\normals-shader.geom">
+      <Filter>resources</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -81,7 +81,7 @@ static void LoadCloud() {
 	PointCloud<Normal>::Ptr normals(new PointCloud<Normal>);
 
 	PointCloud<PointXYZRGBNormal>::Ptr cloud_with_normals(new PointCloud<PointXYZRGBNormal>);
-	io::loadPolygonFilePLY("bun_love.ply", mesh);
+	io::loadPolygonFilePLY(ResourcePath("bun_love.ply"), mesh);
 	
 	fromPCLPointCloud2(mesh.cloud, *cloud);
 
@@ -202,11 +202,11 @@ static void Render() {
 void Update(float secondsElapsed) {
     //rotate the cube
     const GLfloat degreesPerSecond = 45.0f;
-    gDegreesRotated += secondsElapsed * degreesPerSecond;
-    while(gDegreesRotated > 360.0f) gDegreesRotated -= 360.0f;
+  //  gDegreesRotated += secondsElapsed * degreesPerSecond;
+  //  while(gDegreesRotated > 360.0f) gDegreesRotated -= 360.0f;
 
     //move position of camera based on WASD keys, and XZ keys for up and down
-    const float moveSpeed = 2.0; //units per second
+    const float moveSpeed = 0.5; //units per second
     if(glfwGetKey(gWindow, 'S')){
         gCamera.offsetPosition(secondsElapsed * moveSpeed * -gCamera.forward());
     } else if(glfwGetKey(gWindow, 'W')){
