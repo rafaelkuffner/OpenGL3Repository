@@ -16,7 +16,7 @@ out vec2 VertexUV;
 out vec4 VertexColor;
 
 void main() {
-   float size = 0.0005;
+   float size = 0.002;
 	vec3 zeroup = vec3(0,0,1);
 	vec3 zeroup2 = vec3(0,1,0);
 	vec3 zeroup3 = vec3(1,0,0);

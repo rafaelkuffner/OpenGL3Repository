@@ -42,6 +42,7 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/conversions.h>
+#include <pcl/common/transforms.h>
 
 using namespace pcl;
 // constants
@@ -81,7 +82,7 @@ static void LoadCloud() {
 	PointCloud<Normal>::Ptr normals(new PointCloud<Normal>);
 
 	PointCloud<PointXYZRGBNormal>::Ptr cloud_with_normals(new PointCloud<PointXYZRGBNormal>);
-	io::loadPolygonFilePLY(ResourcePath("bun_love.ply"), mesh);
+	io::loadPolygonFilePLY(ResourcePath("bear.ply"), mesh);
 	
 	fromPCLPointCloud2(mesh.cloud, *cloud);
 
@@ -89,10 +90,18 @@ static void LoadCloud() {
 	ne.setInputCloud(cloud);
 	search::KdTree<pcl::PointXYZRGB>::Ptr tree(new search::KdTree<pcl::PointXYZRGB>());
 	ne.setSearchMethod(tree);
+	//ne.setKSearch(2);
 	ne.setRadiusSearch(0.005);
 	ne.compute(*normals);
 	pcl::concatenateFields(*cloud, *normals, *cloud_with_normals);
 	numElements = cloud_with_normals->size();
+	Eigen::Vector4f centroid;
+	Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
+	pcl::compute3DCentroid(*cloud_with_normals, centroid);
+	transform(0, 3) = -centroid.x();
+	transform(1,3) = -centroid.y();
+	transform(2, 3) = -centroid.z();
+	pcl::transformPointCloudWithNormals(*cloud_with_normals, *cloud_with_normals, transform);
 
 	float *varray = (float*)malloc(sizeof(float)*numElements * 4);
 	float *carray = (float*)malloc(sizeof(float)*numElements * 4);
@@ -156,7 +165,7 @@ static void LoadCloud() {
 
 // loads the file "wooden-crate.jpg" into gTexture
 static void LoadTexture() {
-    tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("wooden-crate.jpg"));
+    tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("brush.png"));
     bmp.flipVertically();
     gTexture = new tdogl::Texture(bmp);
 }
@@ -165,7 +174,7 @@ static void LoadTexture() {
 // draws a single frame
 static void Render() {
     // clear everything
-    glClearColor(0, 0, 0, 1); // black
+    glClearColor(0.3, 0.3, 0.3, 1); // black
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     // bind the program (the shaders)
@@ -178,9 +187,9 @@ static void Render() {
     gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0,1,0)));
         
     // bind the texture and set the "tex" uniform in the fragment shader
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, gTexture->object());
-    //gProgram->setUniform("tex", 0); //set to 0 because the texture is bound to GL_TEXTURE0
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, gTexture->object());
+    gProgram->setUniform("tex", 0); //set to 0 because the texture is bound to GL_TEXTURE0
 
     // bind the VAO (the triangle)
     glBindVertexArray(gVAO);
@@ -302,8 +311,8 @@ void AppMain() {
     // OpenGL settings
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_BLEND); 
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // load vertex and fragment shaders into opengl
     LoadShaders();
