@@ -10,5 +10,7 @@ void main() {
 	vec2 uv = VertexUV.xy;
   
     vec4 t = texture(tex,uv);
-    finalColor = t* VertexColor;
+	if(t.a<0.5) discard;
+    //finalColor = VertexColor;
+	finalColor = t* VertexColor;
 }

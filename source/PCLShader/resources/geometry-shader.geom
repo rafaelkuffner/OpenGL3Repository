@@ -16,10 +16,7 @@ out vec2 VertexUV;
 out vec4 VertexColor;
 
 void main() {
-   float size = 0.002;
-	vec3 zeroup = vec3(0,0,1);
-	vec3 zeroup2 = vec3(0,1,0);
-	vec3 zeroup3 = vec3(1,0,0);
+   float size = 0.0006;
 	vec3 right;
 	vec3 up;
 	vec4 c = vertex[0].color;
@@ -51,16 +48,15 @@ void main() {
 			y1 = (-b + sqrt(delta2))/(2*a2);
 			y2 = (-b - sqrt(delta2))/(2*a2);
 		}else{
-			right = vec3(1,0,0);
-			up = vec3(0,1,0);
+		  right = vec3(1,0,0);
+		  up = vec3(0,0,1);
 		}
-	
 	  float x1 = sqrt(1 - pow(y1, 2));
 	  float x2 = sqrt(1 - pow(y2, 2));
 	  
 	  right = vec3(x1,y1,0);
 	  up = cross(right,normal);
-
+	  
      
       vec3 P = gl_in[0].gl_Position.xyz;
      

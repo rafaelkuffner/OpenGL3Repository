@@ -58,15 +58,46 @@ GLuint gVAO = 0;
 GLfloat gDegreesRotated = 0.0f;
 GLsizei numElements;
 glm::vec2 lastMousePos(0, 0);
+float resolution = 0;
 
 // loads the vertex shader and fragment shader, and links them to make the global gProgram
 static void LoadShaders() {
     std::vector<tdogl::Shader> shaders;
 	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath("vertex-shader.vert"), GL_VERTEX_SHADER));
 	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath("fragment-shader.frag"), GL_FRAGMENT_SHADER));
-	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath("geometry-shader.geom"), GL_GEOMETRY_SHADER));
+	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath("normals-shader.geom"), GL_GEOMETRY_SHADER));
     gProgram = new tdogl::Program(shaders);
 	glBindFragDataLocation(gProgram->object(), 0, "finalColor");
+}
+double computeCloudResolution(const pcl::PointCloud<PointXYZRGB>::ConstPtr &cloud)
+{
+	double res = 0.0;
+	int n_points = 0;
+	int nres;
+	std::vector<int> indices(2);
+	std::vector<float> sqr_distances(2);
+	pcl::search::KdTree<PointXYZRGB> tree;
+	tree.setInputCloud(cloud);
+
+	for (size_t i = 0; i < cloud->size(); ++i)
+	{
+		if (!pcl_isfinite((*cloud)[i].x))
+		{
+			continue;
+		}
+		//Considering the second neighbor since the first is the point itself.
+		nres = tree.nearestKSearch(i, 2, indices, sqr_distances);
+		if (nres == 2)
+		{
+			res += sqrt(sqr_distances[1]);
+			++n_points;
+		}
+	}
+	if (n_points != 0)
+	{
+		res /= n_points;
+	}
+	return res;
 }
 
 
@@ -82,9 +113,11 @@ static void LoadCloud() {
 	PointCloud<Normal>::Ptr normals(new PointCloud<Normal>);
 
 	PointCloud<PointXYZRGBNormal>::Ptr cloud_with_normals(new PointCloud<PointXYZRGBNormal>);
-	io::loadPolygonFilePLY(ResourcePath("bear.ply"), mesh);
+	io::loadPolygonFilePLY(ResourcePath("simple100k.ply"), mesh);
 	
 	fromPCLPointCloud2(mesh.cloud, *cloud);
+
+	resolution = computeCloudResolution(cloud);
 
 	NormalEstimation<PointXYZRGB, Normal> ne;
 	ne.setInputCloud(cloud);
@@ -122,9 +155,9 @@ static void LoadCloud() {
 		carray[i + 2] = b;
 		carray[i + 3] = 1.0;
 
-		narray[i] = it->normal_x;
-		narray[i + 1] = it->normal_y;
-		narray[i + 2] = it->normal_z;
+		narray[i] = - it->normal_x;
+		narray[i + 1] = -it->normal_y;
+		narray[i + 2] = -it->normal_z;
 		narray[i + 3] = 1.0;
 
 		i += 4;
@@ -165,7 +198,7 @@ static void LoadCloud() {
 
 // loads the file "wooden-crate.jpg" into gTexture
 static void LoadTexture() {
-    tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("brush.png"));
+    tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("brush3.png"));
     bmp.flipVertically();
     gTexture = new tdogl::Texture(bmp);
 }
@@ -174,7 +207,7 @@ static void LoadTexture() {
 // draws a single frame
 static void Render() {
     // clear everything
-    glClearColor(0.3, 0.3, 0.3, 1); // black
+    glClearColor(1.0, 1.0, 1.0, 1); // black
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     // bind the program (the shaders)
@@ -182,13 +215,18 @@ static void Render() {
 
     // set the "camera" uniform
     gProgram->setUniform("camera", gCamera.matrix());
-
+	// set the camera position uniform
+	gProgram->setUniform("camPosition", gCamera.position());
+	gProgram->setUniform("resolution", resolution);
     // set the "model" uniform in the vertex shader, based on the gDegreesRotated global
     gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0,1,0)));
         
     // bind the texture and set the "tex" uniform in the fragment shader
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, gTexture->object());
+	glBindTexture(GL_TEXTURE_2D, gTexture->object());	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
     gProgram->setUniform("tex", 0); //set to 0 because the texture is bound to GL_TEXTURE0
 
     // bind the VAO (the triangle)
@@ -215,7 +253,7 @@ void Update(float secondsElapsed) {
   //  while(gDegreesRotated > 360.0f) gDegreesRotated -= 360.0f;
 
     //move position of camera based on WASD keys, and XZ keys for up and down
-    const float moveSpeed = 0.5; //units per second
+    const float moveSpeed = 0.3; //units per second
     if(glfwGetKey(gWindow, 'S')){
         gCamera.offsetPosition(secondsElapsed * moveSpeed * -gCamera.forward());
     } else if(glfwGetKey(gWindow, 'W')){
@@ -313,7 +351,6 @@ void AppMain() {
     glDepthFunc(GL_LESS);
 	glEnable(GL_BLEND); 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
     // load vertex and fragment shaders into opengl
     LoadShaders();
 
