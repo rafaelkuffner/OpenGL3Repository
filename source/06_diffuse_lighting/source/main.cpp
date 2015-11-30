@@ -415,7 +415,7 @@ void AppMain() {
     // setup gCamera
     gCamera.setPosition(glm::vec3(-4,0,17));
     gCamera.setViewportAspectRatio(SCREEN_SIZE.x / SCREEN_SIZE.y);
-    gCamera.setNearAndFarPlanes(0.5f, 100.0f);
+    gCamera.setNearAndFarPlanes(0.01f, 100.0f);
 
     // setup gLight
     gLight.position = gCamera.position();

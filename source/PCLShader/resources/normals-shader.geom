@@ -20,7 +20,10 @@ out vec4 VertexColor;
 
 void main() {
    float dist = distance(camPosition,gl_in[0].gl_Position.xyz);
+   //a variável fora da exponencial diz quantas patches vão ter quando a distância for 0,
+   // o número da exponencial tem a ver com a distância a qual ele vai ser 1. 
    float tiling =1+(9*(pow(20,-dist)));
+   //se quiser desativar o tiling, é aqui.
    //tiling = 1;
    //float size = 0.002;
    float size = 2*resolution;
