@@ -53,9 +53,13 @@ GLFWwindow* gWindow = NULL;
 double gScrollY = 0.0;
 tdogl::Texture* gTexture = NULL;
 tdogl::Program* gProgram = NULL;
+tdogl::Program* blurProgram = NULL;
 tdogl::Program* rttProgram = NULL;
+
 tdogl::Camera gCamera;
 FrameBuffer fbo;
+FrameBuffer fboCanvasV;
+FrameBuffer fboCanvasH;
 GLuint gVAO = 0;
 GLfloat gDegreesRotated = 0.0f;
 GLsizei numElements;
@@ -72,11 +76,20 @@ static void LoadShaders() {
     gProgram = new tdogl::Program(shaders);
 	glBindFragDataLocation(gProgram->object(), 0, "finalColor");
 	
+	std::vector<tdogl::Shader> shaders3;
+	shaders3.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
+	shaders3.push_back(tdogl::Shader::shaderFromFile(ResourcePath("blur.frag"), GL_FRAGMENT_SHADER));
+	blurProgram = new tdogl::Program(shaders3);
+	glBindFragDataLocation(blurProgram->object(), 0, "FragmentColor");
+
 	std::vector<tdogl::Shader> shaders2;
 	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
 	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.frag"), GL_FRAGMENT_SHADER));
 	rttProgram = new tdogl::Program(shaders2);
 	glBindFragDataLocation(rttProgram->object(),0, "outColor");
+
+
+
 
 	GLenum error = glGetError();
 	if (error != GL_NO_ERROR)
@@ -289,7 +302,72 @@ static void Render() {
 	error = glGetError();
 	if (error != GL_NO_ERROR)
 		std::cerr << "OpenGL Error Render pass 1 " << error << std::endl;
-	//pass 2: texture to OGL
+	
+
+
+
+	//pass 2: blur 
+	{
+	
+		glBindVertexArray(rtt_vao);
+		glActiveTexture(GL_TEXTURE0 + 1);
+
+		blurProgram->use();
+		blurProgram->setUniform("image", 1);	
+		error = glGetError();
+		blurProgram->setUniform("width", (float)wWidth);
+		error = glGetError();
+		blurProgram->setUniform("height", (float)wHeight);
+
+		fboCanvasH.bind();
+		glClearColor(1.0, 1.0, 1.0, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//pass 2.1, horiz uses fbo text as input
+		glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture());
+		blurProgram->setUniform("d", 0);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		fboCanvasH.unbind();
+
+		fboCanvasV.bind();
+		glClearColor(1.0, 1.0, 1.0, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//pass 2.2, horiz uses fbo text as input
+		glBindTexture(GL_TEXTURE_2D, fboCanvasH.getColorTexture());
+		blurProgram->setUniform("d", 1);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		fboCanvasV.unbind();
+		
+		int iterations = 9;
+		for (int i = 0; i < iterations;i++){
+			fboCanvasH.bind();
+			glClearColor(1.0, 1.0, 1.0, 1);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glBindTexture(GL_TEXTURE_2D, fboCanvasV.getColorTexture());
+			blurProgram->setUniform("d", 0);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			fboCanvasH.unbind();
+
+			fboCanvasV.bind();
+			glClearColor(1.0, 1.0, 1.0, 1);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glBindTexture(GL_TEXTURE_2D, fboCanvasH.getColorTexture());
+			blurProgram->setUniform("d", 1);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			fboCanvasV.unbind();
+		}
+
+		// unbind the VAO, the program and the texture
+		glBindVertexArray(0);
+		blurProgram->stopUsing();
+	}	
+
+	error = glGetError();
+	if (error != GL_NO_ERROR)
+		std::cerr << "OpenGL Error Render pass 2 " << error << std::endl;
+
+	//pass 3: texture to OGL
 	{
 		glClearColor(1.0, 1.0, 1.0, 1); 
 		// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -297,12 +375,9 @@ static void Render() {
 
 		rttProgram->use();
 
-		glActiveTexture(GL_TEXTURE0 + 1);
-		glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture());
-		rttProgram->setUniform("texture_color", 1);
-		rttProgram->setUniform("screen_width", wWidth);
-		rttProgram->setUniform("screen_height", wHeight);
-		rttProgram->setUniform("c", 1);
+		glActiveTexture(GL_TEXTURE0 + 2);
+		glBindTexture(GL_TEXTURE_2D, fboCanvasV.getColorTexture());
+		rttProgram->setUniform("texture_color", 2);
 
 		glBindVertexArray(rtt_vao);
 
@@ -316,7 +391,8 @@ static void Render() {
 	}
 	error = glGetError();
 	if (error != GL_NO_ERROR)
-		std::cerr << "OpenGL Error Render pass 2 " << error << std::endl;
+		std::cerr << "OpenGL Error Render pass 3 " << error << std::endl;
+
     // swap the display buffers (displays what was just drawn)
     glfwSwapBuffers(gWindow);
 
@@ -384,6 +460,10 @@ void OnResize(GLFWwindow* window, int width, int height){
 	glViewport(0, 0, width, height);
 	gCamera.setViewportAspectRatio((float)width / (float)height);
 	fbo.GenerateFBO(width, height);
+	fboCanvasV.GenerateFBO(width, height);
+	fboCanvasH.GenerateFBO(width, height);
+	wWidth = width;
+	wHeight = height;
 }
 
 // the program starts here
@@ -446,6 +526,8 @@ void AppMain() {
 	wWidth = SCREEN_SIZE.x;
 	wHeight = SCREEN_SIZE.y;
 	fbo.GenerateFBO(wWidth, wHeight);
+	fboCanvasH.GenerateFBO(wWidth, wHeight);
+	fboCanvasV.GenerateFBO(wWidth, wHeight);
     // setup gCamera
     gCamera.setPosition(glm::vec3(0,0,2));
 	
