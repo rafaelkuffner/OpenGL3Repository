@@ -25,6 +25,9 @@
     <ClCompile Include="..\..\source\PCLShader\source\tdogl\Texture.cpp">
       <Filter>source\tdogl</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\FrameBuffer.cpp">
+      <Filter>source\tdogl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\PCLShader\source\tdogl\Bitmap.h">
@@ -40,6 +43,9 @@
       <Filter>source\tdogl</Filter>
     </ClInclude>
     <ClInclude Include="..\..\source\PCLShader\source\tdogl\Texture.h">
+      <Filter>source\tdogl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\FrameBuffer.h">
       <Filter>source\tdogl</Filter>
     </ClInclude>
   </ItemGroup>
@@ -75,6 +81,15 @@
       <Filter>resources</Filter>
     </None>
     <None Include="..\..\source\PCLShader\resources\normals-shader.geom">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\ref-shader.geom">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\rtt.frag">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\rtt.vert">
       <Filter>resources</Filter>
     </None>
   </ItemGroup>

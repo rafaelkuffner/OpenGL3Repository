@@ -22,11 +22,11 @@ void main() {
    float dist = distance(camPosition,gl_in[0].gl_Position.xyz);
    //a variável fora da exponencial diz quantas patches vão ter quando a distância for 0,
    // o número da exponencial tem a ver com a distância a qual ele vai ser 1. 
-   float tiling =1+(9*(pow(20,-dist)));
+   float tiling =1+(0*(pow(20,-dist)));
    //se quiser desativar o tiling, é aqui.
    //tiling = 1;
    //float size = 0.002;
-   float size = 2*resolution;
+   float size = 1.5*resolution;
 	vec3 right;
 	vec3 up;
 	vec4 c = vertex[0].color;
