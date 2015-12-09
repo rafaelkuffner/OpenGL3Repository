@@ -34,7 +34,7 @@
 #include "tdogl/Program.h"
 #include "tdogl/Texture.h"
 #include "tdogl/Camera.h"
-
+#include "tdogl/FrameBuffer.h"
 
 //PCL
 #include <pcl/point_types.h>
@@ -53,13 +53,16 @@ GLFWwindow* gWindow = NULL;
 double gScrollY = 0.0;
 tdogl::Texture* gTexture = NULL;
 tdogl::Program* gProgram = NULL;
+tdogl::Program* rttProgram = NULL;
 tdogl::Camera gCamera;
+FrameBuffer fbo;
 GLuint gVAO = 0;
 GLfloat gDegreesRotated = 0.0f;
 GLsizei numElements;
 glm::vec2 lastMousePos(0, 0);
 float resolution = 0;
-
+unsigned int rtt_vbo, rtt_ibo, rtt_vao;
+int wWidth, wHeight;
 // loads the vertex shader and fragment shader, and links them to make the global gProgram
 static void LoadShaders() {
     std::vector<tdogl::Shader> shaders;
@@ -68,7 +71,18 @@ static void LoadShaders() {
 	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath("normals-shader.geom"), GL_GEOMETRY_SHADER));
     gProgram = new tdogl::Program(shaders);
 	glBindFragDataLocation(gProgram->object(), 0, "finalColor");
+	
+	std::vector<tdogl::Shader> shaders2;
+	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
+	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.frag"), GL_FRAGMENT_SHADER));
+	rttProgram = new tdogl::Program(shaders2);
+	glBindFragDataLocation(rttProgram->object(),0, "outColor");
+
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR)
+		std::cerr << "OpenGL Error LoadShaders" << error << std::endl;
 }
+
 double computeCloudResolution(const pcl::PointCloud<PointXYZRGB>::ConstPtr &cloud)
 {
 	double res = 0.0;
@@ -100,7 +114,6 @@ double computeCloudResolution(const pcl::PointCloud<PointXYZRGB>::ConstPtr &clou
 	return res;
 }
 
-
 // loads a cube into the VAO and VBO globals: gVAO and gVBO
 static void LoadCloud() {
     // make and bind the VAO
@@ -113,7 +126,7 @@ static void LoadCloud() {
 	PointCloud<Normal>::Ptr normals(new PointCloud<Normal>);
 
 	PointCloud<PointXYZRGBNormal>::Ptr cloud_with_normals(new PointCloud<PointXYZRGBNormal>);
-	io::loadPolygonFilePLY(ResourcePath("simple100k.ply"), mesh);
+	io::loadPolygonFilePLY(ResourcePath("bear.ply"), mesh);
 	
 	fromPCLPointCloud2(mesh.cloud, *cloud);
 
@@ -186,15 +199,42 @@ static void LoadCloud() {
 	// connect the normal to the "norm" attribute of the vertex shader
 	glEnableVertexAttribArray(gProgram->attrib("norm"));
 	glVertexAttribPointer(gProgram->attrib("norm"), 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), NULL);
-        
-    //// connect the uv coords to the "vertTexCoord" attribute of the vertex shader
-    //glEnableVertexAttribArray(gProgram->attrib("vertTexCoord"));
-    //glVertexAttribPointer(gProgram->attrib("vertTexCoord"), 2, GL_FLOAT, GL_TRUE,  5*sizeof(GLfloat), (const GLvoid*)(3 * sizeof(GLfloat)));
-
+  
     // unbind the VAO
     glBindVertexArray(0);
 }
 
+static void LoadRTTVariables(){
+	glGenVertexArrays(1, &rtt_vao);
+	glBindVertexArray(rtt_vao);
+
+	// make and bind the VBO
+	glGenBuffers(1, &rtt_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, rtt_vbo);
+
+	// Put the three triangle vertices (XYZ) and texture coordinates (UV) into the VBO
+	GLfloat vertexData[] = {
+		//  X     Y     Z       U     V
+		-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+		-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+		1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+		1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+		-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+		1.0f, -1.0f, 0.0f, 1.0f, 0.0f
+	};
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
+
+	// connect the xyz to the "vert" attribute of the vertex shader
+	glEnableVertexAttribArray(rttProgram->attrib("in_position"));
+	glVertexAttribPointer(rttProgram->attrib("in_position"), 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), NULL);
+
+	// connect the uv coords to the "vertTexCoord" attribute of the vertex shader
+	glEnableVertexAttribArray(rttProgram->attrib("in_texcoord"));
+	glVertexAttribPointer(rttProgram->attrib("in_texcoord"), 2, GL_FLOAT, GL_TRUE, 5 * sizeof(GLfloat), (const GLvoid*)(3 * sizeof(GLfloat)));
+
+	// unbind the VAO
+	glBindVertexArray(0);
+}
 
 // loads the file "wooden-crate.jpg" into gTexture
 static void LoadTexture() {
@@ -206,42 +246,81 @@ static void LoadTexture() {
 
 // draws a single frame
 static void Render() {
-    // clear everything
-    glClearColor(1.0, 1.0, 1.0, 1); // black
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    // bind the program (the shaders)
-    gProgram->use();
+	GLenum error;
+	//pass 1: normal render to texture
+	fbo.bind(); 
+	{
+		// clear everything
+		glClearColor(1.0, 1.0, 1.0, 1); // black
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // set the "camera" uniform
-    gProgram->setUniform("camera", gCamera.matrix());
-	// set the camera position uniform
-	gProgram->setUniform("camPosition", gCamera.position());
-	gProgram->setUniform("resolution", resolution);
-    // set the "model" uniform in the vertex shader, based on the gDegreesRotated global
-    gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0,1,0)));
-        
-    // bind the texture and set the "tex" uniform in the fragment shader
-    glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, gTexture->object());	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		// bind the program (the shaders)
+		gProgram->use();
 
-    gProgram->setUniform("tex", 0); //set to 0 because the texture is bound to GL_TEXTURE0
+		// set the "camera" uniform
+		gProgram->setUniform("camera", gCamera.matrix());
+		// set the camera position uniform
+		gProgram->setUniform("camPosition", gCamera.position());
+		gProgram->setUniform("resolution", resolution);
+		// set the "model" uniform in the vertex shader, based on the gDegreesRotated global
+		gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
 
-    // bind the VAO (the triangle)
-    glBindVertexArray(gVAO);
-    
-    // draw the VAO
-    glDrawArrays(GL_POINTS, 0,numElements);
-    
-    // unbind the VAO, the program and the texture
-    glBindVertexArray(0);
-  //glBindTexture(GL_TEXTURE_2D, 0);
-    gProgram->stopUsing();
-    
+		// bind the texture and set the "tex" uniform in the fragment shader
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, gTexture->object());
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+		gProgram->setUniform("tex", 0); //set to 0 because the texture is bound to GL_TEXTURE0
+
+		// bind the VAO
+		glBindVertexArray(gVAO);
+
+		// draw the VAO
+		glDrawArrays(GL_POINTS, 0, numElements);
+
+		// unbind the VAO, the program and the texture
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		gProgram->stopUsing();
+	}
+	fbo.unbind();
+
+	error = glGetError();
+	if (error != GL_NO_ERROR)
+		std::cerr << "OpenGL Error Render pass 1 " << error << std::endl;
+	//pass 2: texture to OGL
+	{
+		glClearColor(1.0, 1.0, 1.0, 1); 
+		// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		rttProgram->use();
+
+		glActiveTexture(GL_TEXTURE0 + 1);
+		glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture());
+		rttProgram->setUniform("texture_color", 1);
+		rttProgram->setUniform("screen_width", wWidth);
+		rttProgram->setUniform("screen_height", wHeight);
+		rttProgram->setUniform("c", 1);
+
+		glBindVertexArray(rtt_vao);
+
+		// draw the VAO
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+
+		// unbind the VAO, the program and the texture
+
+		glBindVertexArray(0);
+		rttProgram->stopUsing();
+	}
+	error = glGetError();
+	if (error != GL_NO_ERROR)
+		std::cerr << "OpenGL Error Render pass 2 " << error << std::endl;
     // swap the display buffers (displays what was just drawn)
     glfwSwapBuffers(gWindow);
+
+//	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }
 
 
@@ -304,7 +383,9 @@ void OnError(int errorCode, const char* msg) {
 void OnResize(GLFWwindow* window, int width, int height){
 	glViewport(0, 0, width, height);
 	gCamera.setViewportAspectRatio((float)width / (float)height);
+	fbo.GenerateFBO(width, height);
 }
+
 // the program starts here
 void AppMain() {
     // initialise GLFW
@@ -360,6 +441,11 @@ void AppMain() {
     // create buffer and fill it with the points of the triangle
     LoadCloud();
 
+	LoadRTTVariables();
+	//create frame buffer
+	wWidth = SCREEN_SIZE.x;
+	wHeight = SCREEN_SIZE.y;
+	fbo.GenerateFBO(wWidth, wHeight);
     // setup gCamera
     gCamera.setPosition(glm::vec3(0,0,2));
 	

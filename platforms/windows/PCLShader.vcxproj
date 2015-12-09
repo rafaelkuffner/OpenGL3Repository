@@ -88,6 +88,7 @@
     <ClCompile Include="..\..\source\PCLShader\source\main.cpp" />
     <ClCompile Include="..\..\source\PCLShader\source\tdogl\Bitmap.cpp" />
     <ClCompile Include="..\..\source\PCLShader\source\tdogl\Camera.cpp" />
+    <ClCompile Include="..\..\source\PCLShader\source\tdogl\FrameBuffer.cpp" />
     <ClCompile Include="..\..\source\PCLShader\source\tdogl\Program.cpp" />
     <ClCompile Include="..\..\source\PCLShader\source\tdogl\Shader.cpp" />
     <ClCompile Include="..\..\source\PCLShader\source\tdogl\Texture.cpp" />
@@ -97,6 +98,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\source\PCLShader\source\tdogl\Bitmap.h" />
     <ClInclude Include="..\..\source\PCLShader\source\tdogl\Camera.h" />
+    <ClInclude Include="..\..\source\PCLShader\source\tdogl\FrameBuffer.h" />
     <ClInclude Include="..\..\source\PCLShader\source\tdogl\Program.h" />
     <ClInclude Include="..\..\source\PCLShader\source\tdogl\Shader.h" />
     <ClInclude Include="..\..\source\PCLShader\source\tdogl\Texture.h" />
@@ -111,6 +113,9 @@
   <ItemGroup>
     <None Include="..\..\source\PCLShader\resources\geometry-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\normals-shader.geom" />
+    <None Include="..\..\source\PCLShader\resources\ref-shader.geom" />
+    <None Include="..\..\source\PCLShader\resources\rtt.frag" />
+    <None Include="..\..\source\PCLShader\resources\rtt.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
