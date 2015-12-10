@@ -257,11 +257,16 @@ static void LoadTexture() {
 }
 
 
-// draws a single frame
-static void Render() {
+static void checkError(const char* msg){
 	GLenum error;
-	//pass 1: normal render to texture
-	fbo.bind(); 
+	error = glGetError();
+	if (error != GL_NO_ERROR)
+		std::cerr << "OpenGL Error " << "oi" << " " << error << std::endl;
+
+}
+
+static void firstPass(){
+	fbo.bind();
 	{
 		// clear everything
 		glClearColor(1.0, 1.0, 1.0, 1); // black
@@ -299,32 +304,40 @@ static void Render() {
 	}
 	fbo.unbind();
 
-	error = glGetError();
-	if (error != GL_NO_ERROR)
-		std::cerr << "OpenGL Error Render pass 1 " << error << std::endl;
-	
+}
 
+static void secondPass(int iterations){
+	glBindVertexArray(rtt_vao);
+	glActiveTexture(GL_TEXTURE0 + 1);
 
+	blurProgram->use();
+	blurProgram->setUniform("image", 1);
+	blurProgram->setUniform("width", (float)wWidth);
+	blurProgram->setUniform("height", (float)wHeight);
 
-	//pass 2: blur 
-	{
-	
-		glBindVertexArray(rtt_vao);
-		glActiveTexture(GL_TEXTURE0 + 1);
+	fboCanvasH.bind();
+	glClearColor(1.0, 1.0, 1.0, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//pass 2.1, horiz uses fbo text as input
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture());
+	blurProgram->setUniform("d", 0);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	fboCanvasH.unbind();
 
-		blurProgram->use();
-		blurProgram->setUniform("image", 1);	
-		error = glGetError();
-		blurProgram->setUniform("width", (float)wWidth);
-		error = glGetError();
-		blurProgram->setUniform("height", (float)wHeight);
+	fboCanvasV.bind();
+	glClearColor(1.0, 1.0, 1.0, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//pass 2.2, horiz uses fbo text as input
+	glBindTexture(GL_TEXTURE_2D, fboCanvasH.getColorTexture());
+	blurProgram->setUniform("d", 1);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	fboCanvasV.unbind();
 
+	for (int i = 0; i < iterations; i++){
 		fboCanvasH.bind();
 		glClearColor(1.0, 1.0, 1.0, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		//pass 2.1, horiz uses fbo text as input
-		glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture());
+		glBindTexture(GL_TEXTURE_2D, fboCanvasV.getColorTexture());
 		blurProgram->setUniform("d", 0);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		fboCanvasH.unbind();
@@ -332,66 +345,52 @@ static void Render() {
 		fboCanvasV.bind();
 		glClearColor(1.0, 1.0, 1.0, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		//pass 2.2, horiz uses fbo text as input
 		glBindTexture(GL_TEXTURE_2D, fboCanvasH.getColorTexture());
 		blurProgram->setUniform("d", 1);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		fboCanvasV.unbind();
-		
-		int iterations = 9;
-		for (int i = 0; i < iterations;i++){
-			fboCanvasH.bind();
-			glClearColor(1.0, 1.0, 1.0, 1);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			glBindTexture(GL_TEXTURE_2D, fboCanvasV.getColorTexture());
-			blurProgram->setUniform("d", 0);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			fboCanvasH.unbind();
+	}
 
-			fboCanvasV.bind();
-			glClearColor(1.0, 1.0, 1.0, 1);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			glBindTexture(GL_TEXTURE_2D, fboCanvasH.getColorTexture());
-			blurProgram->setUniform("d", 1);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			fboCanvasV.unbind();
-		}
+	// unbind the VAO, the program and the texture
+	glBindVertexArray(0);
+	blurProgram->stopUsing();
+}
 
-		// unbind the VAO, the program and the texture
-		glBindVertexArray(0);
-		blurProgram->stopUsing();
-	}	
+static void finalPass(){
+	glClearColor(1.0, 1.0, 1.0, 1);
+	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	error = glGetError();
-	if (error != GL_NO_ERROR)
-		std::cerr << "OpenGL Error Render pass 2 " << error << std::endl;
+	rttProgram->use();
+
+	glActiveTexture(GL_TEXTURE0 + 2);
+	glBindTexture(GL_TEXTURE_2D, fboCanvasV.getColorTexture());
+	rttProgram->setUniform("texture_color", 2);
+
+	glBindVertexArray(rtt_vao);
+
+	// draw the VAO
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+
+	// unbind the VAO, the program and the texture
+
+	glBindVertexArray(0);
+	rttProgram->stopUsing();
+}
+// draws a single frame
+static void Render() {
+	
+	//pass 1: normal render to texture	
+	firstPass();
+	checkError("first pass");
+
+	//pass 2: blur 
+	secondPass(9);
+	checkError("second pass");
 
 	//pass 3: texture to OGL
-	{
-		glClearColor(1.0, 1.0, 1.0, 1); 
-		// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		rttProgram->use();
-
-		glActiveTexture(GL_TEXTURE0 + 2);
-		glBindTexture(GL_TEXTURE_2D, fboCanvasV.getColorTexture());
-		rttProgram->setUniform("texture_color", 2);
-
-		glBindVertexArray(rtt_vao);
-
-		// draw the VAO
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		// unbind the VAO, the program and the texture
-
-		glBindVertexArray(0);
-		rttProgram->stopUsing();
-	}
-	error = glGetError();
-	if (error != GL_NO_ERROR)
-		std::cerr << "OpenGL Error Render pass 3 " << error << std::endl;
+	finalPass();
+	checkError("final pass");
 
     // swap the display buffers (displays what was just drawn)
     glfwSwapBuffers(gWindow);

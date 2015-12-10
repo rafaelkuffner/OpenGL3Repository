@@ -72,11 +72,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="..\..\source\PCLShader\resources\wooden-crate.jpg">
-      <Filter>resources</Filter>
-    </Image>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="..\..\source\PCLShader\resources\geometry-shader.geom">
       <Filter>resources</Filter>
     </None>
@@ -92,5 +87,19 @@
     <None Include="..\..\source\PCLShader\resources\rtt.vert">
       <Filter>resources</Filter>
     </None>
+    <None Include="..\..\source\PCLShader\resources\blur.frag">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\diff.frag">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\diff.vert">
+      <Filter>resources</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\source\PCLShader\resources\wooden-crate.jpg">
+      <Filter>source\tdogl</Filter>
+    </Image>
   </ItemGroup>
 </Project>

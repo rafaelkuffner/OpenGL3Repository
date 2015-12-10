@@ -10,6 +10,7 @@ void FrameBuffer::destroy(){
 //generate an empty color texture with 4 channels (RGBA8) using bilinear filtering
 void FrameBuffer::GenerateColorTexture(unsigned int width, unsigned int height){
 	GLenum error;
+	unsigned int texture_color;
 	glGenTextures(1, &texture_color);
 	glBindTexture(GL_TEXTURE_2D, texture_color);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -17,13 +18,13 @@ void FrameBuffer::GenerateColorTexture(unsigned int width, unsigned int height){
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+	texture_color_array.push_back(texture_color);
 }
 
 
 
 //generate an empty depth texture with 1 depth channel using bilinear filtering
 void FrameBuffer::GenerateDepthTexture(unsigned int width, unsigned int height){
-
 	glGenTextures(1, &texture_depth);
 	glBindTexture(GL_TEXTURE_2D, texture_depth);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -35,7 +36,7 @@ void FrameBuffer::GenerateDepthTexture(unsigned int width, unsigned int height){
 }
 
 //Generate FBO and two empty textures
-void FrameBuffer::GenerateFBO(unsigned int width, unsigned int height){
+void FrameBuffer::GenerateFBO(unsigned int width, unsigned int height,int ntextures){
 
 	
 	
@@ -44,8 +45,9 @@ void FrameBuffer::GenerateFBO(unsigned int width, unsigned int height){
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
 
 	
-
-	GenerateColorTexture(width, height);//generate empty texture
+	for (int i = 0; i < ntextures; i++){
+		GenerateColorTexture(width, height);//generate empty texture
+	}
 	GenerateDepthTexture(width, height);//generate empty texture
 	
 
@@ -54,8 +56,9 @@ void FrameBuffer::GenerateFBO(unsigned int width, unsigned int height){
 
 	//bind textures to pipeline. texture_depth is optional
 	//0 is the mipmap level. 0 is the heightest
-
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachment_index_color_texture, texture_color, 0);
+	for (int i = 0; i < ntextures; i++){
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, texture_color_array[i], 0);
+	}
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texture_depth, 0);//optional
 
 	//add attachements
@@ -73,8 +76,8 @@ void FrameBuffer::GenerateFBO(unsigned int width, unsigned int height){
 }
 
 //return color texture from the framebuffer
-unsigned int FrameBuffer::getColorTexture(){
-	return texture_color;
+unsigned int FrameBuffer::getColorTexture(int index){
+	return texture_color_array[index];
 }
 
 //return depth texture from the framebuffer

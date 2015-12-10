@@ -10,7 +10,7 @@ class FrameBuffer{
 private:
 
 	unsigned int FBO;                   //framebuffer object
-	unsigned int texture_color;         
+	std::vector<unsigned int> texture_color_array;
 	unsigned int texture_depth;			
 	std::vector<GLenum> drawbuffer;     //add texture attachements
 
@@ -38,10 +38,10 @@ private:
 public:
 
 	//Generate FBO and two empty textures
-	void GenerateFBO(unsigned int width, unsigned int height);
+	void GenerateFBO(unsigned int width, unsigned int height,int ntextures);
 
 	//return color texture from the framebuffer
-	unsigned int getColorTexture();
+	unsigned int getColorTexture(int index);
 
 	//return depth texture from the framebuffer
 	unsigned int getDepthTexture();

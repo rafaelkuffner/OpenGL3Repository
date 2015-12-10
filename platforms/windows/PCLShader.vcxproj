@@ -111,6 +111,9 @@
     <Image Include="..\..\source\PCLShader\resources\wooden-crate.jpg" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\source\PCLShader\resources\blur.frag" />
+    <None Include="..\..\source\PCLShader\resources\diff.frag" />
+    <None Include="..\..\source\PCLShader\resources\diff.vert" />
     <None Include="..\..\source\PCLShader\resources\geometry-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\normals-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\ref-shader.geom" />
