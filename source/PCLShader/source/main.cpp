@@ -18,6 +18,7 @@
 
 #include "platform.hpp"
 
+
 // third-party libraries
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -29,6 +30,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
+#include <sstream>
 
 // tdogl classes
 #include "tdogl/Program.h"
@@ -44,6 +46,12 @@
 #include <pcl/conversions.h>
 #include <pcl/common/transforms.h>
 
+// region growing segmentation
+#include <pcl/filters/passthrough.h>
+#include <pcl/segmentation/region_growing.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/segmentation/region_growing_rgb.h>
+
 using namespace pcl;
 // constants
 const glm::vec2 SCREEN_SIZE(800, 600);
@@ -51,15 +59,18 @@ const glm::vec2 SCREEN_SIZE(800, 600);
 // globals
 GLFWwindow* gWindow = NULL;
 double gScrollY = 0.0;
-tdogl::Texture* gTexture = NULL;
+std::vector<tdogl::Texture*> textures;
 tdogl::Program* gProgram = NULL;
 tdogl::Program* blurProgram = NULL;
 tdogl::Program* rttProgram = NULL;
+tdogl::Program* diffProgram = NULL;
+tdogl::Program* rttArtProgram = NULL;
 
 tdogl::Camera gCamera;
 FrameBuffer fbo;
-FrameBuffer fboCanvasV;
-FrameBuffer fboCanvasH;
+FrameBuffer fboGridBig;
+FrameBuffer fboGridSmall;
+
 GLuint gVAO = 0;
 GLfloat gDegreesRotated = 0.0f;
 GLsizei numElements;
@@ -67,6 +78,7 @@ glm::vec2 lastMousePos(0, 0);
 float resolution = 0;
 unsigned int rtt_vbo, rtt_ibo, rtt_vao;
 int wWidth, wHeight;
+int gridSizeBig, gridSizeSmall;
 // loads the vertex shader and fragment shader, and links them to make the global gProgram
 static void LoadShaders() {
     std::vector<tdogl::Shader> shaders;
@@ -76,20 +88,30 @@ static void LoadShaders() {
     gProgram = new tdogl::Program(shaders);
 	glBindFragDataLocation(gProgram->object(), 0, "finalColor");
 	
+	std::vector<tdogl::Shader> shaders2;
+	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
+	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.frag"), GL_FRAGMENT_SHADER));
+	rttProgram = new tdogl::Program(shaders2);
+	glBindFragDataLocation(rttProgram->object(), 0, "outColor");
+
+
 	std::vector<tdogl::Shader> shaders3;
 	shaders3.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
 	shaders3.push_back(tdogl::Shader::shaderFromFile(ResourcePath("blur.frag"), GL_FRAGMENT_SHADER));
 	blurProgram = new tdogl::Program(shaders3);
 	glBindFragDataLocation(blurProgram->object(), 0, "FragmentColor");
 
-	std::vector<tdogl::Shader> shaders2;
-	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
-	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.frag"), GL_FRAGMENT_SHADER));
-	rttProgram = new tdogl::Program(shaders2);
-	glBindFragDataLocation(rttProgram->object(),0, "outColor");
+	std::vector<tdogl::Shader> shaders4;
+	shaders4.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
+	shaders4.push_back(tdogl::Shader::shaderFromFile(ResourcePath("diff.frag"), GL_FRAGMENT_SHADER));
+	diffProgram = new tdogl::Program(shaders4);
+	glBindFragDataLocation(diffProgram->object(), 0, "BrushColor");
 
-
-
+	std::vector<tdogl::Shader> shaders5;
+	shaders5.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
+	shaders5.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rttArt.frag"), GL_FRAGMENT_SHADER));
+	rttArtProgram = new tdogl::Program(shaders5);
+	glBindFragDataLocation(rttArtProgram->object(), 0, "finalColor");
 
 	GLenum error = glGetError();
 	if (error != GL_NO_ERROR)
@@ -127,6 +149,31 @@ double computeCloudResolution(const pcl::PointCloud<PointXYZRGB>::ConstPtr &clou
 	return res;
 }
 
+
+//pcl::search::Search <pcl::PointXYZRGB>::Ptr tree = boost::shared_ptr<pcl::search::Search<pcl::PointXYZRGB> >(new pcl::search::KdTree<pcl::PointXYZRGB>);
+//
+// pcl::IndicesPtr indices(new std::vector <int>);
+// pcl::PassThrough<pcl::PointXYZRGB> pass;
+// pass.setInputCloud(point_cloud_ptr);
+// pass.setFilterFieldName("z");
+// pass.setFilterLimits(0.0, 1.0);
+// pass.filter(*indices);
+//
+// pcl::RegionGrowingRGB<pcl::PointXYZRGB> reg;
+// reg.setInputCloud(point_cloud_ptr);
+// reg.setIndices(indices);
+// reg.setSearchMethod(tree);
+// reg.setDistanceThreshold(5);
+// reg.setPointColorThreshold(10);
+// reg.setRegionColorThreshold(5);
+// reg.setMinClusterSize(100);
+//
+// std::vector <pcl::PointIndices> clusters;
+// reg.extract(clusters);
+//
+// pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud = reg.getColoredCloud();
+
+
 // loads a cube into the VAO and VBO globals: gVAO and gVBO
 static void LoadCloud() {
     // make and bind the VAO
@@ -139,7 +186,7 @@ static void LoadCloud() {
 	PointCloud<Normal>::Ptr normals(new PointCloud<Normal>);
 
 	PointCloud<PointXYZRGBNormal>::Ptr cloud_with_normals(new PointCloud<PointXYZRGBNormal>);
-	io::loadPolygonFilePLY(ResourcePath("bear.ply"), mesh);
+	io::loadPolygonFilePLY(ResourcePath("hockey50.ply"), mesh);
 	
 	fromPCLPointCloud2(mesh.cloud, *cloud);
 
@@ -251,9 +298,21 @@ static void LoadRTTVariables(){
 
 // loads the file "wooden-crate.jpg" into gTexture
 static void LoadTexture() {
-    tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("brush3.png"));
+    tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("brush6.png"));
     bmp.flipVertically();
-    gTexture = new tdogl::Texture(bmp);
+    textures.push_back(new tdogl::Texture(bmp));
+	bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("brush7.png"));
+	bmp.flipVertically();
+	textures.push_back(new tdogl::Texture(bmp));
+	bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("brush5.png"));
+	bmp.flipVertically();
+	textures.push_back(new tdogl::Texture(bmp)); 
+	bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("brush4.png"));
+	bmp.flipVertically();
+	textures.push_back(new tdogl::Texture(bmp));
+	bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath("brush3f.png"));
+	bmp.flipVertically();
+	textures.push_back(new tdogl::Texture(bmp));
 }
 
 
@@ -261,35 +320,43 @@ static void checkError(const char* msg){
 	GLenum error;
 	error = glGetError();
 	if (error != GL_NO_ERROR)
-		std::cerr << "OpenGL Error " << "oi" << " " << error << std::endl;
+		std::cerr << "OpenGL Error " << msg << " " << error << std::endl;
 
 }
 
 static void firstPass(){
+
 	fbo.bind();
 	{
+		GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+		glDrawBuffers(1, DrawBuffers);
+
 		// clear everything
-		glClearColor(1.0, 1.0, 1.0, 1); // black
+		glClearColor(0.0,0.0, 0.0, 1); // black
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// bind the program (the shaders)
 		gProgram->use();
-
 		// set the "camera" uniform
 		gProgram->setUniform("camera", gCamera.matrix());
 		// set the camera position uniform
-		gProgram->setUniform("camPosition", gCamera.position());
+		//gProgram->setUniform("camPosition", gCamera.position());
 		gProgram->setUniform("resolution", resolution);
 		// set the "model" uniform in the vertex shader, based on the gDegreesRotated global
 		gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
 
 		// bind the texture and set the "tex" uniform in the fragment shader
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, gTexture->object());
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		for (int i = 0; i < textures.size(); i++){
+			glActiveTexture(GL_TEXTURE0+i);
+			glBindTexture(GL_TEXTURE_2D, textures[i]->object());
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			std::stringstream s;
+			s << "tex" << i;
+			gProgram->setUniform(s.str().c_str(),i); //numero de brushes
+		}
 
-		gProgram->setUniform("tex", 0); //set to 0 because the texture is bound to GL_TEXTURE0
+		
 
 		// bind the VAO
 		glBindVertexArray(gVAO);
@@ -307,65 +374,198 @@ static void firstPass(){
 }
 
 static void secondPass(int iterations){
+
+	fbo.bind();
 	glBindVertexArray(rtt_vao);
 	glActiveTexture(GL_TEXTURE0 + 1);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	blurProgram->use();
 	blurProgram->setUniform("image", 1);
 	blurProgram->setUniform("width", (float)wWidth);
 	blurProgram->setUniform("height", (float)wHeight);
-
-	fboCanvasH.bind();
-	glClearColor(1.0, 1.0, 1.0, 1);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
+	GLenum db1[1] = { GL_COLOR_ATTACHMENT1 };
+	GLenum db2[1] = { GL_COLOR_ATTACHMENT2 };
 	//pass 2.1, horiz uses fbo text as input
-	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture());
+	glDrawBuffers(1, db1);
+	glClearColor(0.0, 0.0, 0.0, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(0));
 	blurProgram->setUniform("d", 0);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-	fboCanvasH.unbind();
-
-	fboCanvasV.bind();
-	glClearColor(1.0, 1.0, 1.0, 1);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
 	//pass 2.2, horiz uses fbo text as input
-	glBindTexture(GL_TEXTURE_2D, fboCanvasH.getColorTexture());
+	glDrawBuffers(1, db2);
+	glClearColor(0.0, 0.0, 0.0, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(1));
 	blurProgram->setUniform("d", 1);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-	fboCanvasV.unbind();
+
 
 	for (int i = 0; i < iterations; i++){
-		fboCanvasH.bind();
-		glClearColor(1.0, 1.0, 1.0, 1);
+
+		glDrawBuffers(1, db1);
+		glClearColor(0.0, 0.0, 0.0, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glBindTexture(GL_TEXTURE_2D, fboCanvasV.getColorTexture());
+		glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(2));
 		blurProgram->setUniform("d", 0);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
-		fboCanvasH.unbind();
+		
 
-		fboCanvasV.bind();
-		glClearColor(1.0, 1.0, 1.0, 1);
+		glDrawBuffers(1, db2);
+		glClearColor(0.0,0.0, 0.0, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glBindTexture(GL_TEXTURE_2D, fboCanvasH.getColorTexture());
+		glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(1));
 		blurProgram->setUniform("d", 1);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
-		fboCanvasV.unbind();
+	
 	}
 
 	// unbind the VAO, the program and the texture
 	glBindVertexArray(0);
 	blurProgram->stopUsing();
+	fbo.unbind();
 }
 
-static void finalPass(){
-	glClearColor(1.0, 1.0, 1.0, 1);
+
+static void thirdPass(){
+	int w = (int)wWidth / ((float)gridSizeBig);
+	int h = (int)wHeight / ((float)gridSizeBig);
+
+	glViewport(0, 0,w,h);
+	fboGridBig.bind();	
+	GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+	glDrawBuffers(1, DrawBuffers);
+	glClearColor(0.0,0.0, 0.0, 1);
 	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	rttProgram->use();
-
+	diffProgram->use();
+	glActiveTexture(GL_TEXTURE0 + 1);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(0));
 	glActiveTexture(GL_TEXTURE0 + 2);
-	glBindTexture(GL_TEXTURE_2D, fboCanvasV.getColorTexture());
-	rttProgram->setUniform("texture_color", 2);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(2));
+
+	diffProgram->setUniform("origImage", 1);
+	diffProgram->setUniform("blurImage", 2);
+	diffProgram->setUniform("gridSize", gridSizeBig);
+	diffProgram->setUniform("width", (float)wWidth);
+	diffProgram->setUniform("height", (float)wHeight);
+
+	glBindVertexArray(rtt_vao);
+
+	// draw the VAO
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	checkError("4");
+	// unbind the VAO, the program and the texture
+	glBindVertexArray(0);
+	diffProgram->stopUsing();
+	fboGridBig.unbind();
+	glViewport(0, 0, wWidth, wHeight);
+}
+
+static void fourthPass(){
+	int w = (int)wWidth / ((float)gridSizeSmall);
+	int h = (int)wHeight / ((float)gridSizeSmall);
+
+	glViewport(0, 0, w, h);
+	fboGridSmall.bind();
+	GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+	glDrawBuffers(1, DrawBuffers);
+	glClearColor(0.0,0.0, 0.0, 1);
+	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	diffProgram->use();
+	glActiveTexture(GL_TEXTURE0 + 1);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(0));
+	glActiveTexture(GL_TEXTURE0 + 2);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(2));
+
+	diffProgram->setUniform("origImage", 1);
+	diffProgram->setUniform("blurImage", 2);
+	diffProgram->setUniform("gridSize", gridSizeSmall);
+	diffProgram->setUniform("width", (float)wWidth);
+	diffProgram->setUniform("height", (float)wHeight);
+
+	glBindVertexArray(rtt_vao);
+
+	// draw the VAO
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	checkError("4");
+	// unbind the VAO, the program and the texture
+	glBindVertexArray(0);
+	diffProgram->stopUsing();
+	fboGridSmall.unbind();
+	glViewport(0, 0, wWidth, wHeight);
+}
+static void finalArtPass(){
+	fbo.bind();
+	GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+	glDrawBuffers(1, DrawBuffers);
+
+	glClearColor(0.0,0.0, 0.0, 1);
+	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	rttArtProgram->use();
+	glActiveTexture(GL_TEXTURE0 );
+	glBindTexture(GL_TEXTURE_2D, textures[0]->object());
+	glActiveTexture(GL_TEXTURE0 + 1);
+	glBindTexture(GL_TEXTURE_2D, fboGridBig.getColorTexture(0));
+	glActiveTexture(GL_TEXTURE0 + 2);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(2));
+
+	rttArtProgram->setUniform("tex", 0);
+	rttArtProgram->setUniform("brushMap", 1);
+	rttArtProgram->setUniform("blurtex", 2);
+	rttArtProgram->setUniform("gridSize", gridSizeBig);
+	rttArtProgram->setUniform("width", (float)wWidth);
+	rttArtProgram->setUniform("height", (float)wHeight);
+	glBindVertexArray(rtt_vao);
+
+	// draw the VAO
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	fbo.unbind();
+
+	glClearColor(0.0,0.0, 0.0, 1);
+	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	rttArtProgram->setUniform("gridSize", gridSizeSmall);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textures[1]->object());
+	glActiveTexture(GL_TEXTURE0 + 1);
+	glBindTexture(GL_TEXTURE_2D, fboGridSmall.getColorTexture(0));
+	glActiveTexture(GL_TEXTURE0 + 2);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(0));
+
+
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+
+
+	// unbind the VAO, the program and the texture
+
+	glBindVertexArray(0);
+	rttArtProgram->stopUsing();
+	
+}
+static void finalPass(){
+	glClearColor(0.0,0.0, 0.0, 1);
+	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	
+	rttProgram->use();
+	glActiveTexture(GL_TEXTURE0 + 2);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(0));
+	rttProgram->setUniform("texture_color", 2); 
+	glActiveTexture(GL_TEXTURE0 + 3);
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(2));
+	rttProgram->setUniform("texture_blur", 3);
 
 	glBindVertexArray(rtt_vao);
 
@@ -377,20 +577,43 @@ static void finalPass(){
 	glBindVertexArray(0);
 	rttProgram->stopUsing();
 }
-// draws a single frame
-static void Render() {
-	
+
+static void twoDRender(){
 	//pass 1: normal render to texture	
 	firstPass();
 	checkError("first pass");
 
 	//pass 2: blur 
-	secondPass(9);
+	secondPass(3);
 	checkError("second pass");
 
-	//pass 3: texture to OGL
-	finalPass();
+	//pass 3: difference 
+	thirdPass();
+	checkError("third pass");
+
+	fourthPass();
+	checkError("fourth pass");
+
+	//pass 4: texture to OGL
+	finalArtPass();
 	checkError("final pass");
+}
+
+static void threeDRender(){
+	firstPass();
+	checkError("first pass");
+
+	//pass 2: blur 
+	secondPass(5);
+	checkError("second pass");
+
+	finalPass();
+}
+// draws a single frame
+static void Render() {
+	//twoDRender();
+	threeDRender();
+	
 
     // swap the display buffers (displays what was just drawn)
     glfwSwapBuffers(gWindow);
@@ -458,9 +681,9 @@ void OnError(int errorCode, const char* msg) {
 void OnResize(GLFWwindow* window, int width, int height){
 	glViewport(0, 0, width, height);
 	gCamera.setViewportAspectRatio((float)width / (float)height);
-	fbo.GenerateFBO(width, height);
-	fboCanvasV.GenerateFBO(width, height);
-	fboCanvasH.GenerateFBO(width, height);
+	fbo.resize(width, height);
+	fboGridBig.resize(width / gridSizeBig, height / gridSizeBig);
+	fboGridSmall.resize(width / gridSizeSmall, height / gridSizeSmall);
 	wWidth = width;
 	wHeight = height;
 }
@@ -524,9 +747,12 @@ void AppMain() {
 	//create frame buffer
 	wWidth = SCREEN_SIZE.x;
 	wHeight = SCREEN_SIZE.y;
-	fbo.GenerateFBO(wWidth, wHeight);
-	fboCanvasH.GenerateFBO(wWidth, wHeight);
-	fboCanvasV.GenerateFBO(wWidth, wHeight);
+	gridSizeBig = 25;
+	gridSizeSmall =18;
+	fbo.GenerateFBO(wWidth, wHeight,3);
+	fboGridBig.GenerateFBO(wWidth / gridSizeBig, wHeight / gridSizeBig,1);
+	fboGridSmall.GenerateFBO(wWidth / gridSizeSmall, wHeight / gridSizeSmall,1);
+
     // setup gCamera
     gCamera.setPosition(glm::vec3(0,0,2));
 	

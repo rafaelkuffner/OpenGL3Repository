@@ -2,7 +2,11 @@
 //delete objects
 void FrameBuffer::destroy(){
 	glDeleteFramebuffers(1, &FBO);
-	glDeleteTextures(1, &texture_color);
+	texture_color_array.clear();
+	for each (unsigned int i in texture_color_array)
+	{
+		glDeleteTextures(1, &i);
+	}
 	glDeleteTextures(1, &texture_depth);
 }
 
@@ -58,12 +62,14 @@ void FrameBuffer::GenerateFBO(unsigned int width, unsigned int height,int ntextu
 	//0 is the mipmap level. 0 is the heightest
 	for (int i = 0; i < ntextures; i++){
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, texture_color_array[i], 0);
+		
 	}
+	GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+	glDrawBuffers(1, DrawBuffers);
+
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, texture_depth, 0);//optional
 
 	//add attachements
-	drawbuffer.push_back(GL_COLOR_ATTACHMENT0 + attachment_index_color_texture);
-	glDrawBuffers(drawbuffer.size(), &drawbuffer[0]);
 	//Check for FBO completeness
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE){
 		std::cout << "Error! FrameBuffer is not complete" << std::endl;
@@ -87,8 +93,9 @@ unsigned int FrameBuffer::getDepthTexture(){
 
 //resize window
 void FrameBuffer::resize(unsigned int width, unsigned int height){
+	int ntex = texture_color_array.size();
 	destroy();
-	GenerateFBO(width, height);
+	GenerateFBO(width, height,ntex);
 }
 
 

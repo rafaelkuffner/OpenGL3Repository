@@ -1,35 +1,35 @@
 #version 150
 
-uniform sampler2D image;
-
-out vec4 FragmentColor;
-
-uniform float offset[3] = float[]( 0.0, 1.3846153846, 3.2307692308 );
-uniform float weight[3] = float[]( 0.2270270270, 0.3162162162, 0.0702702703 );
-
+uniform sampler2D origImage;
+uniform sampler2D blurImage;
+uniform int gridSize;
 uniform float width;
 uniform float height;
-//1 == vert 0 == hori
-uniform int d;
+
+out vec4 BrushColor;
+
 
 void main(void)
 {		
-	float coordx = gl_FragCoord.x / width;
-	float coordy = gl_FragCoord.y / height;
-
-    FragmentColor = texture( image, vec2(coordx,coordy))*weight[0];
-    for (int i=1; i<=3; i++) {
-		vec2 coord;
-		if(d ==0) {
-			coord = vec2(offset[i]/width ,0.0);
+	float coordx = gl_FragCoord.x*gridSize / width;
+	float coordy = gl_FragCoord.y *gridSize/ height;
+	coordx = coordx > 0.999? 0.999: coordx;
+	coordy = coordy > 0.999? 0.999: coordy;
+	coordx = coordx < 0.001? 0.001: coordx;
+	coordy = coordy < 0.001? 0.001: coordy;
+	vec2 bigCoord = vec2(coordx,coordy);
+    vec4 maxColor = vec4(0,0,0,1);
+	float maxDist= 0;
+    for (int i=0; i<gridSize; i++) {
+		 for (int j=0; j<gridSize; j++) {
+			vec4 bC = texture( blurImage, bigCoord + vec2(i/width,j/height));
+			vec4 oC = texture( origImage, bigCoord + vec2(i/width,j/height));
+			float dist=  distance(bC ,oC);
+			if(dist > maxDist ){
+				maxDist = dist;
+				maxColor= oC;
 			}
-		else {
-			coord = vec2(0.0,offset[i]/height);
-			}
-        
-		FragmentColor +=
-            texture( image, vec2(coordx,coordy)+coord)* weight[i];
-        FragmentColor +=
-            texture( image, vec2(coordx,coordy)-coord) * weight[i];
-    }
+		}
+	}
+	BrushColor = maxColor;
 }

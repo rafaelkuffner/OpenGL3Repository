@@ -26,10 +26,15 @@ void main(void)
 		else {
 			coord = vec2(0.0,offset[i]/height);
 			}
-        
+		vec2 coordp = vec2(coordx,coordy)+coord;
+		vec2 coordm = vec2(coordx,coordy)-coord;
+		coordp.x = coordp.x > 0.999? 0.999: coordp.x;
+		coordp.y = coordp.y > 0.999? 0.999: coordp.y;
+		coordm.x = coordm.x < 0.001? 0.001: coordm.x;
+		coordm.y = coordm.y < 0.001? 0.001: coordm.y;
 		FragmentColor +=
-            texture( image, vec2(coordx,coordy)+coord)* weight[i];
+            texture( image, coordp)* weight[i];
         FragmentColor +=
-            texture( image, vec2(coordx,coordy)-coord) * weight[i];
+            texture( image, coordm) * weight[i];
     }
 }

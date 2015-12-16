@@ -2,7 +2,7 @@
 
 uniform mat4 camera;
 uniform mat4 model;
-uniform vec3 camPosition;
+//uniform vec3 camPosition;
 uniform float resolution;
 
 layout(points) in;
@@ -17,14 +17,19 @@ in Vertex
      
 out vec2 VertexUV;
 out vec4 VertexColor;
+flat out int tex;
+
+float rand(vec2 co){
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
 
 void main() {
-   float dist = distance(camPosition,gl_in[0].gl_Position.xyz);
+ //  float dist = distance(camPosition,gl_in[0].gl_Position.xyz);
    //a variável fora da exponencial diz quantas patches vão ter quando a distância for 0,
    // o número da exponencial tem a ver com a distância a qual ele vai ser 1. 
-   float tiling =1+(0*(pow(20,-dist)));
+  // float tiling =1+(0*(pow(20,-dist)));
    //se quiser desativar o tiling, é aqui.
-   //tiling = 1;
+   float tiling = 1;
    //float size = 0.002;
    float size = 1.5*resolution;
 	vec3 right;
@@ -39,7 +44,8 @@ void main() {
 	float z2;
 	float x1;
 	float x2;
-
+	
+	tex = (int(rand(vec2(nx,ny))*10000))%5;
 	x1 = sqrt(1/(1+(pow(nx,2)/pow(nz,2))));
 	x2 = -x1;
 	z1 = - nx*x1/nz;
