@@ -31,7 +31,8 @@ void main() {
    //se quiser desativar o tiling, é aqui.
    float tiling = 1;
    //float size = 0.002;
-   float size = 1.5*resolution;
+  
+   float size = resolution;
 	vec3 right;
 	vec3 up;
 	vec4 c = vertex[0].color;
@@ -45,7 +46,7 @@ void main() {
 	float x1;
 	float x2;
 	
-	tex = (int(rand(vec2(nx,ny))*10000))%5;
+	tex = (int(rand(vec2(nx,ny))*10000))%10;
 	x1 = sqrt(1/(1+(pow(nx,2)/pow(nz,2))));
 	x2 = -x1;
 	z1 = - nx*x1/nz;

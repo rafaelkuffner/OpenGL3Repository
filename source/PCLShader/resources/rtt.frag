@@ -10,9 +10,13 @@ out vec4 outColor;
 
 void main(){
 		vec4 texcol = texture(texture_color, texcoord);
-		vec4 blurcol =  2*texture(texture_blur,texcoord);
+		vec4 blurcol =  texture(texture_blur,texcoord);
+
+		vec4 gs= vec4(0.299*texcol.r ,0.587*texcol.g ,0.114*texcol.b,1.0);
+		float alpha = 1.1;
+		texcol =( alpha * ( texcol )) + ((1.0-alpha) * gs);
 		if(texcol == vec4(0,0,0,1))
 			outColor =  blurcol;
 		else
-			outColor = (0.8*texcol + blurcol)/2;
+			outColor = (texcol+blurcol)/2;
 }
