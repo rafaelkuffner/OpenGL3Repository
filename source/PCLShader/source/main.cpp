@@ -59,6 +59,9 @@ const glm::vec2 SCREEN_SIZE(800, 600);
 // globals
 GLFWwindow* gWindow = NULL;
 double gScrollY = 0.0;
+std::vector<tdogl::Texture*> hBtextures;
+std::vector<tdogl::Texture*> vBtextures;
+std::vector<tdogl::Texture*> rBtextures;
 std::vector<tdogl::Texture*> htextures;
 std::vector<tdogl::Texture*> vtextures;
 std::vector<tdogl::Texture*> rtextures;
@@ -412,19 +415,37 @@ static void LoadRTTVariables(){
 // loads the file "wooden-crate.jpg" into gTexture
 static void LoadTexture() {
 	for (int i = 1; i <= 10; i++){
-		std::stringstream s1, s2, s3;
-		s1 << "vert3brush\\b" << i<<".png";
+		std::stringstream s1, s2, s3,s1b,s2b,s3b;
+		s1 << "vert3brush\\b" << i << ".png";
+		s1b << "vertbrush\\b" << i << ".png";
 		s2 << "horiz3brush\\b" << i << ".png";
+		s2b << "horizbrush\\b" << i << ".png";
 		s3 << "round3brush\\b" << i << ".png";
+		s3b << "roundbrush\\b" << i << ".png";
+
 		tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s1.str()));
 		bmp.flipVertically();
 		htextures.push_back(new tdogl::Texture(bmp));
+		
+		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s1b.str()));
+		bmp.flipVertically();
+		hBtextures.push_back(new tdogl::Texture(bmp));
+		
 		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s2.str()));
 		bmp.flipVertically();
 		vtextures.push_back(new tdogl::Texture(bmp));
+		
+		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s2b.str()));
+		bmp.flipVertically();
+		vBtextures.push_back(new tdogl::Texture(bmp));
+
 		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s3.str()));
 		bmp.flipVertically();
 		rtextures.push_back(new tdogl::Texture(bmp));
+
+		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s3b.str()));
+		bmp.flipVertically();
+		rBtextures.push_back(new tdogl::Texture(bmp));
 	}
 }
 
@@ -464,7 +485,25 @@ static void firstPass(float resolutionMult, int outbuf){
 			// bind the VAO
 			glBindVertexArray(gVAOs[j]);
 
-			gProgram->setUniform("resolution", resolutions[j]*resolutionMult);
+			for (int i = 0; i < 10; i++){
+				glActiveTexture(GL_TEXTURE0 + i);
+				if (brushtype[j] == 0)
+					glBindTexture(GL_TEXTURE_2D, hBtextures[i]->object());
+				if (brushtype[j] == 1)
+					glBindTexture(GL_TEXTURE_2D, vBtextures[i]->object());
+				if (brushtype[j] == 2)
+					glBindTexture(GL_TEXTURE_2D, rBtextures[i]->object());
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+				std::stringstream s;
+				s << "tex" << i;
+				gProgram->setUniform(s.str().c_str(), i);
+			}
+
+			gProgram->setUniform("resolution", resolutions[j] * resolutionMult);
+			// draw the VAO
+			glDrawArrays(GL_POINTS, 0, numElements[j]);
+
 			for (int i = 0; i < 10; i++){
 				glActiveTexture(GL_TEXTURE0 + i);
 				if (brushtype[j] == 0)
@@ -479,9 +518,11 @@ static void firstPass(float resolutionMult, int outbuf){
 				s << "tex" << i;
 				gProgram->setUniform(s.str().c_str(), i);
 			}
-
+			gProgram->setUniform("resolution", resolutions[j] * 0.7*resolutionMult);
 			// draw the VAO
 			glDrawArrays(GL_POINTS, 0, numElements[j]);
+
+
 		}
 
 		
