@@ -93,7 +93,13 @@
     <None Include="..\..\source\PCLShader\resources\diff.frag">
       <Filter>resources</Filter>
     </None>
-    <None Include="..\..\source\PCLShader\resources\diff.vert">
+    <None Include="..\..\source\PCLShader\resources\rttArt.frag">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\simp.vert">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\simp.frag">
       <Filter>resources</Filter>
     </None>
   </ItemGroup>

@@ -61,7 +61,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>D:\PCL\PCL 1.6.0\3rdParty\Boost\lib;D:\PCL\PCL 1.8.0\lib;D:\PCL\PCL 1.6.0\3rdParty\VTK\lib\vtk-5.8</AdditionalLibraryDirectories>
-      <AdditionalDependencies>pcl_io_debug.lib;pcl_io_ply_debug.lib;pcl_common_debug.lib;pcl_search_debug.lib;pcl_features_debug.lib;pcl_kdtree_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>pcl_io_debug.lib;pcl_io_ply_debug.lib;pcl_common_debug.lib;pcl_search_debug.lib;pcl_features_debug.lib;pcl_kdtree_debug.lib;pcl_filters_debug.lib;pcl_segmentation_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -81,7 +81,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>D:\PCL\PCL 1.6.0\3rdParty\Boost\lib;D:\PCL\PCL 1.8.0\lib;D:\PCL\PCL 1.6.0\3rdParty\VTK\lib\vtk-5.8</AdditionalLibraryDirectories>
-      <AdditionalDependencies>pcl_io_release.lib;pcl_io_ply_release.lib;pcl_common_release.lib;pcl_search_release.lib;pcl_features_release.lib;pcl_kdtree_release.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>pcl_io_release.lib;pcl_io_ply_release.lib;pcl_common_release.lib;pcl_search_release.lib;pcl_features_release.lib;pcl_kdtree_release.lib;pcl_filters_release.lib;pcl_segmentation_release.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <LargeAddressAware>true</LargeAddressAware>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -113,12 +114,14 @@
   <ItemGroup>
     <None Include="..\..\source\PCLShader\resources\blur.frag" />
     <None Include="..\..\source\PCLShader\resources\diff.frag" />
-    <None Include="..\..\source\PCLShader\resources\diff.vert" />
     <None Include="..\..\source\PCLShader\resources\geometry-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\normals-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\ref-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\rtt.frag" />
     <None Include="..\..\source\PCLShader\resources\rtt.vert" />
+    <None Include="..\..\source\PCLShader\resources\rttArt.frag" />
+    <None Include="..\..\source\PCLShader\resources\simp.frag" />
+    <None Include="..\..\source\PCLShader\resources\simp.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
