@@ -77,7 +77,7 @@ FrameBuffer fbo;
 FrameBuffer fboGridBig;
 FrameBuffer fboGridSmall;
 
-std::vector<std::vector<GLuint>> gVAOs;
+std::vector<GLuint> gVAOs;
 std::vector<GLsizei> numElements;
 std::vector<int> brushtype;
 GLfloat gDegreesRotated = 0.0f;
@@ -87,7 +87,7 @@ unsigned int rtt_vbo, rtt_ibo, rtt_vao;
 int wWidth, wHeight;
 int gridSizeBig, gridSizeSmall;
 bool paint = true;
-int cloud = 0;
+int cluster = 0;
 std::vector<glm::vec4> defColors;
 
 float alph = 1.0;
@@ -96,38 +96,6 @@ float epsilon = 0.3;
 float patchScale = 0.7;
 // loads the vertex shader and fragment shader, and links them to make the global gProgram
 std::string cloudName;
-int style = 0;
-
-using namespace std;
-vector<string> GetFilesInDirectory(const string directory)
-{
-	HANDLE dir;
-	WIN32_FIND_DATA file_data;
-	vector<string> out;
-	string direc = directory + "/*";
-	const char* temp = direc.c_str();
-
-	if ((dir = FindFirstFile(temp, &file_data)) == INVALID_HANDLE_VALUE)
-		return out;
-
-	do {
-		const string file_name = file_data.cFileName;
-		const string full_file_name = directory + "\\" + file_name;
-		const bool is_directory = (file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-
-		if (file_name[0] == '.')
-			continue;
-
-		if (is_directory)
-			continue;
-
-		out.push_back(full_file_name);
-	} while (FindNextFile(dir, &file_data));
-
-	FindClose(dir);
-	return out;
-}
-
 static void LoadShaders() {
     std::vector<tdogl::Shader> shaders;
 	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath("vertex-shader.vert"), GL_VERTEX_SHADER));
@@ -245,13 +213,7 @@ static std::vector<PointCloud<PointXYZRGB>::Ptr> segmentPointCloud(PointCloud<Po
 
 void loadPly(PointCloud<PointXYZRGB>::Ptr cloud, std::string path){
 	PolygonMesh mesh; 
-	string str2 = "D:";
-	std::size_t found = path.find(str2);
-	if (found == std::string::npos)
 		io::loadPolygonFilePLY(ResourcePath(path), mesh);
-	else
-		io::loadPolygonFilePLY(path, mesh);
-
 	fromPCLPointCloud2(mesh.cloud, *cloud);
 }
 
@@ -292,10 +254,10 @@ void readKinectCloudDisk(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::stri
 
 
 
-static void CloudPreprocess(std::vector<PointCloud<PointXYZRGB>::Ptr> &cloud_clusters,string cname){
+static void CloudPreprocess(std::vector<PointCloud<PointXYZRGB>::Ptr> &cloud_clusters){
 
 	PointCloud<PointXYZRGB>::Ptr cloud(new PointCloud<PointXYZRGB>);
-	loadPly(cloud,cname );
+	loadPly(cloud,cloudName );
 
 	Eigen::Vector4f centroid;
 	Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
@@ -311,24 +273,17 @@ static void CloudPreprocess(std::vector<PointCloud<PointXYZRGB>::Ptr> &cloud_clu
 
 
 // loads a cube into the VAO and VBO globals: gVAO and gVBO
-static void LoadCloud(string cname) {
+static void LoadCloud() {
 
 	std::vector<PointCloud<PointXYZRGB>::Ptr> cloud_clusters;
-	CloudPreprocess(cloud_clusters,cname);
-	std::vector<GLuint> arrayobjs;
-	int max = 0;
-	for (int i = 0; i < cloud_clusters.size(); i++){
-		max = max > cloud_clusters[i]->size() ? max : cloud_clusters[i]->size();
-	}
-	float *varray = (float*)malloc(sizeof(float)*max * 4);
-	float *carray = (float*)malloc(sizeof(float)*max * 4);
-	float *narray = (float*)malloc(sizeof(float)*max * 4);
+	CloudPreprocess(cloud_clusters);
+
 	for (int k = 0; k < cloud_clusters.size(); k++){
 		GLuint gVAO;
 		glGenVertexArrays(1, &gVAO);
 		glBindVertexArray(gVAO);
 
-		arrayobjs.push_back(gVAO);
+		gVAOs.push_back(gVAO);
 		numElements.push_back(cloud_clusters[k]->size());
 		// make and bind the VAO
 
@@ -374,7 +329,9 @@ static void LoadCloud(string cname) {
 		
 
 
-		
+		float *varray = (float*)malloc(sizeof(float)*numElements[k] * 4);
+		float *carray = (float*)malloc(sizeof(float)*numElements[k] * 4);
+		float *narray = (float*)malloc(sizeof(float)*numElements[k] * 4);
 		int i = 0;
 		for (PointCloud<PointXYZRGBNormal>::iterator it = cloud_with_normals->begin(); it != cloud_with_normals->end(); it++){
 			float r = it->r / 255.0;
@@ -427,12 +384,11 @@ static void LoadCloud(string cname) {
 		glEnableVertexAttribArray(gProgram->attrib("norm"));
 		glVertexAttribPointer(gProgram->attrib("norm"), 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), NULL);
 
+		free(varray);
+		free(narray);
+		free(carray);
 
 	}
-	free(varray);
-	free(narray);
-	free(carray);
-	gVAOs.push_back(arrayobjs);
     // unbind the VAO
     glBindVertexArray(0);
 }
@@ -473,21 +429,27 @@ static void LoadRTTVariables(){
 static void LoadTexture() {
 	for (int i = 1; i <= 10; i++){
 		std::stringstream s1, s2, s3,s1b,s2b,s3b;
-		
+		//expressionism
+	/*	s1 << "exprbrush\\b" << i << ".png";
+		s1b << "vert4brush\\b" << i << ".png";
+		s2 << "exprbrush2\\b" << i << ".png";
+		s2b << "horiz4brush\\b" << i << ".png";
+		s3 << "exprbrush2\\b" << i << ".png";
+		s3b << "round4brush\\b" << i << ".png";*/
 		//pointilism
-		/*s1 << "vertbrush\\b" << i << ".png";
+		s1 << "vertbrush\\b" << i << ".png";
 		s1b << "vertbrush\\b" << i << ".png";
 		s2 << "horizbrush\\b" << i << ".png";
 		s2b << "horizbrush\\b" << i << ".png";
 		s3 << "roundbrush\\b" << i << ".png";
-		s3b << "roundbrush\\b" << i << ".png"; */
+		s3b << "roundbrush\\b" << i << ".png"; 
 		//impressionism
-		s1 << "vert3brush\\b" << i << ".png";
+		/*s1 << "vert3brush\\b" << i << ".png";
 		s1b << "vertbrush\\b" << i << ".png";
 		s2 << "horiz3brush\\b" << i << ".png";
 		s2b << "horizbrush\\b" << i << ".png";
 		s3 << "round3brush\\b" << i << ".png";
-		s3b << "roundbrush\\b" << i << ".png"; 
+		s3b << "roundbrush\\b" << i << ".png"; */
 
 		tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s1.str()));
 		bmp.flipVertically();
@@ -510,39 +472,6 @@ static void LoadTexture() {
 		rtextures.push_back(new tdogl::Texture(bmp));
 
 		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s3b.str()));
-		bmp.flipVertically();
-		rBtextures.push_back(new tdogl::Texture(bmp));
-		std::stringstream s1a, s2a, s3a, s1ba, s2ba, s3ba;
-		//expressionism
-		s1a << "roundbrush\\b" << i << ".png";
-		s1ba << "roundbrush\\b" << i << ".png";
-		s2a << "roundbrush\\b" << i << ".png";
-		s2ba << "roundbrush\\b" << i << ".png";
-		s3a << "roundbrush\\b" << i << ".png";
-		s3ba << "roundbrush\\b" << i << ".png";
-
-
-		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s1a.str()));
-		bmp.flipVertically();
-		htextures.push_back(new tdogl::Texture(bmp));
-
-		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s1ba.str()));
-		bmp.flipVertically();
-		hBtextures.push_back(new tdogl::Texture(bmp));
-
-		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s2a.str()));
-		bmp.flipVertically();
-		vtextures.push_back(new tdogl::Texture(bmp));
-
-		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s2ba.str()));
-		bmp.flipVertically();
-		vBtextures.push_back(new tdogl::Texture(bmp));
-
-		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s3a.str()));
-		bmp.flipVertically();
-		rtextures.push_back(new tdogl::Texture(bmp));
-
-		bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s3ba.str()));
 		bmp.flipVertically();
 		rBtextures.push_back(new tdogl::Texture(bmp));
 	}
@@ -579,21 +508,20 @@ static void firstPass(float resolutionMult, int outbuf){
 
 		// bind the texture and set the "tex" uniform in the fragment shader
 	
-		
-		for (int j = 0; j < gVAOs[cloud].size(); j++){
+		int j = cluster;
+
+		for (int j = 0; j < gVAOs.size(); j++){
 			// bind the VAO
-			glBindVertexArray(gVAOs[cloud][j]);
+			glBindVertexArray(gVAOs[j]);
 
 			for (int i = 0; i < 10; i++){
-				
 				glActiveTexture(GL_TEXTURE0 + i);
-				int idx = style > 15? 1 : 0;
 				if (brushtype[j] == 0)
-					glBindTexture(GL_TEXTURE_2D, vBtextures[2 * i+idx ]->object());
+					glBindTexture(GL_TEXTURE_2D, vBtextures[i]->object());
 				if (brushtype[j] == 1)
-					glBindTexture(GL_TEXTURE_2D, hBtextures[2 * i + idx]->object());
+					glBindTexture(GL_TEXTURE_2D, hBtextures[i]->object());
 				if (brushtype[j] == 2)
-					glBindTexture(GL_TEXTURE_2D, rBtextures[2 * i + idx]->object());
+					glBindTexture(GL_TEXTURE_2D, rBtextures[i]->object());
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 				std::stringstream s;
@@ -614,13 +542,12 @@ static void firstPass(float resolutionMult, int outbuf){
 			checkError("first pass 1");
 			for (int i = 0; i < 10; i++){
 				glActiveTexture(GL_TEXTURE0 + i);
-				int idx = style > 15 ? 1 : 0;
 				if (brushtype[j] == 0)
-					glBindTexture(GL_TEXTURE_2D, vtextures[2 * i + idx]->object());
+					glBindTexture(GL_TEXTURE_2D, vtextures[i]->object());
 				if (brushtype[j] == 1)
-					glBindTexture(GL_TEXTURE_2D, htextures[2 * i + idx]->object());
+					glBindTexture(GL_TEXTURE_2D, htextures[i]->object());
 				if (brushtype[j] == 2)
-					glBindTexture(GL_TEXTURE_2D, rtextures[2 * i + idx]->object());
+					glBindTexture(GL_TEXTURE_2D, rtextures[i]->object());
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 				std::stringstream s;
@@ -906,13 +833,13 @@ static void cloudRender(){
 	
 	// bind the texture and set the "tex" uniform in the fragment shader
 
-	
+	int j = cluster;
 
-	for (int j = 0; j < gVAOs[cloud].size(); j++){
+	for (int j = 0; j < gVAOs.size(); j++){
 		// bind the VAO
 
 		//g2Program->setUniform("defaultColor", defColors[j]);
-		glBindVertexArray(gVAOs[cloud][j]);
+		glBindVertexArray(gVAOs[j]);
 		// draw the VAO
 		glDrawArrays(GL_POINTS, 0, numElements[j]);
 	}
@@ -940,12 +867,12 @@ static void Render() {
 // update the scene based on the time elapsed since last update
 void Update(float secondsElapsed) {
     //rotate the cube
-    //const GLfloat degreesPerSecond = -3.0f;
-    //gDegreesRotated += secondsElapsed * degreesPerSecond;
-    //while(gDegreesRotated > 0.0f) gDegreesRotated += 360.0f;
+    const GLfloat degreesPerSecond = 45.0f;
+  //  gDegreesRotated += secondsElapsed * degreesPerSecond;
+  //  while(gDegreesRotated > 360.0f) gDegreesRotated -= 360.0f;
 
     //move position of camera based on WASD keys, and XZ keys for up and down
-    const float moveSpeed = 0.03; //units per second
+    const float moveSpeed = 0.3; //units per second
     if(glfwGetKey(gWindow, 'S')){
         gCamera.offsetPosition(secondsElapsed * moveSpeed * -gCamera.forward());
     } else if(glfwGetKey(gWindow, 'W')){
@@ -961,8 +888,8 @@ void Update(float secondsElapsed) {
     } else if(glfwGetKey(gWindow, 'X')){
         gCamera.offsetPosition(secondsElapsed * moveSpeed * glm::vec3(0,1,0));
 	}else if (glfwGetKey(gWindow, 'C')){
-		cloud++;
-		if (cloud == gVAOs.size()) cloud = 0;
+		cluster++;
+		if (cluster == gVAOs.size()) cluster = 0;
 	}else if (glfwGetKey(gWindow, 'P')){
 		paint = !paint;
 	}
@@ -992,12 +919,6 @@ void Update(float secondsElapsed) {
 	}
 	else if (glfwGetKey(gWindow, 'M')){
 		patchScale -= 0.001;
-	}
-	else if (glfwGetKey(gWindow, 'K')){
-		style++;
-		if (style > 30){
-			style = 0;
-		}
 	}
     //rotate camera based on mouse movement
     const float mouseSensitivity = 0.1f;
@@ -1058,7 +979,7 @@ void AppMain() {
         throw std::runtime_error("glfwCreateWindow failed. Can your hardware handle OpenGL 3.2?");
 
     // GLFW settings
-    glfwSetInputMode(gWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  //  glfwSetInputMode(gWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPos(gWindow, 0, 0);
     glfwSetScrollCallback(gWindow, OnScroll);
 	glfwMakeContextCurrent(gWindow);
@@ -1093,17 +1014,7 @@ void AppMain() {
     LoadTexture();
 
     // create buffer and fill it with the points of the triangle
-	string str2 = ".ply";
-	std::size_t found = cloudName.find(str2);
-	if (found == std::string::npos){
-		vector<string> clouds = GetFilesInDirectory(cloudName);
-		for (int i = 0; i < clouds.size(); i++){
-			LoadCloud(clouds[i]);
-		}
-	}
-	else{
-		LoadCloud(cloudName);
-	}
+    LoadCloud();
 
 	LoadRTTVariables();
 	//create frame buffer
@@ -1156,6 +1067,36 @@ void AppMain() {
 
     // clean up and exit
     glfwTerminate();
+}
+
+using namespace std;
+vector<string> GetFilesInDirectory(const string directory)
+{
+	HANDLE dir;
+	WIN32_FIND_DATA file_data;
+	vector<string> out;
+	string direc = directory + "/*";
+	const char* temp = direc.c_str();
+
+	if ((dir = FindFirstFile(temp, &file_data)) == INVALID_HANDLE_VALUE)
+		return out;
+
+	do {
+		const string file_name = file_data.cFileName;
+		const string full_file_name = directory + "\\" + file_name;
+		const bool is_directory = (file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+		if (file_name[0] == '.')
+			continue;
+
+		if (is_directory)
+			continue;
+
+		out.push_back(full_file_name);
+	} while (FindNextFile(dir, &file_data));
+
+	FindClose(dir);
+	return out;
 }
 
 

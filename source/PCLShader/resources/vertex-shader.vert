@@ -1,8 +1,9 @@
 #version 150
 
 in vec4 vert;
-in vec4 norm;
 in vec4 col;
+in vec4 norm;
+
 
 out Vertex
 {

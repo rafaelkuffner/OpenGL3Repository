@@ -4,6 +4,7 @@ uniform mat4 camera;
 uniform mat4 model;
 //uniform vec3 camPosition;
 uniform float resolution;
+uniform float scale;
 
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
@@ -18,6 +19,9 @@ in Vertex
 out vec2 VertexUV;
 out vec4 VertexColor;
 flat out int tex;
+out float rr;
+out float rg;
+out float rb;
 
 float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
@@ -41,24 +45,40 @@ void main() {
 	float nx = vertex[0].normal.x;
 	float ny = vertex[0].normal.y;
 	float nz = vertex[0].normal.z;
-	float z1;
-	float z2;
-	float x1;
-	float x2;
+	//float z1;
+	//float z2;
+	//float x1;
+	//float x2;
 	
 	tex = (int(rand(vec2(nx,ny))*10000))%10;
-	x1 = sqrt(1/(1+(pow(nx,2)/pow(nz,2))));
-	x2 = -x1;
-	z1 = - nx*x1/nz;
-	z2 = -z1;
+	rr = rand(vec2(nx,nz));
+	rg = rand(vec2(nz,ny));
+	rb = rand(vec2(ny,nx));
+	//x1 = sqrt(1/(1+(pow(nx,2)/pow(nz,2))));
+	//x2 = -x1;
+	//z1 = - nx*x1/nz;
+	//z2 = -z1;
 	
-	  right = vec3(x1,0,z1);
-	  up = cross(right,normal);
+	//  right = vec3(x1,0,z1);
+	//  up = cross(right,normal);
 	  
+	float n = sqrt(pow(nx,2) + pow(ny,2) + pow(nz,2));
+
+	float h1 = max( nx - n , nx + n );
+
+	float h2 = ny;
+
+	float h3 = nz;
+
+	float h = sqrt(pow(h1,2) + pow(h2,2) + pow(h3,2));
+
+	right = vec3(-2*h1*h2/pow(h,2), 1 - 2*pow(h2,2)/pow(h,2), -2*h2*h3/pow(h,2));
+
+	up = vec3(-2*h1*h3/pow(h,2), -2*h2*h3/pow(h,2), 1 - 2*pow(h3,2)/pow(h,2));
 	  
 	
 	  
-    vec3 P = gl_in[0].gl_Position.xyz;
+    vec3 P = gl_in[0].gl_Position.xyz + vertex[0].normal.xyz*(scale -1);
      
      
     vec3 va = P - (right + up) * size;

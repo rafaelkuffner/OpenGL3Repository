@@ -18,5 +18,5 @@ void main(){
 		if(texcol == vec4(0,0,0,1))
 			outColor =  blurcol;
 		else
-			outColor = (texcol+blurcol)/2;
+			outColor = (0.7*texcol+1.3*blurcol)/2;
 }
