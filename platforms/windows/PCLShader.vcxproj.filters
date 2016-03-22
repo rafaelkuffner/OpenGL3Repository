@@ -72,9 +72,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\source\PCLShader\resources\geometry-shader.geom">
-      <Filter>resources</Filter>
-    </None>
     <None Include="..\..\source\PCLShader\resources\normals-shader.geom">
       <Filter>resources</Filter>
     </None>
@@ -100,6 +97,9 @@
       <Filter>resources</Filter>
     </None>
     <None Include="..\..\source\PCLShader\resources\simp.frag">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\splat-shader.geom">
       <Filter>resources</Filter>
     </None>
   </ItemGroup>

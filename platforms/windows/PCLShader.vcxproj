@@ -114,7 +114,7 @@
   <ItemGroup>
     <None Include="..\..\source\PCLShader\resources\blur.frag" />
     <None Include="..\..\source\PCLShader\resources\diff.frag" />
-    <None Include="..\..\source\PCLShader\resources\geometry-shader.geom" />
+    <None Include="..\..\source\PCLShader\resources\splat-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\normals-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\ref-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\rtt.frag" />

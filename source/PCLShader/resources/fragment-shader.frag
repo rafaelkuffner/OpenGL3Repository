@@ -46,6 +46,7 @@ void main() {
 		normal.z = sqrt(1 - normal.x*normal.x - normal.y * normal.y); // Reconstruct z component to get a unit normal.
 		t.a = 1.0;
 	}else{
+		//t = vec4(1,1,1,1);
 		discard;
 	}
 	

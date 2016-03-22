@@ -218,11 +218,16 @@ static std::vector<PointCloud<PointXYZRGB>::Ptr> segmentPointCloud(PointCloud<Po
 	 reg.setInputCloud(cloud);
 
 	 reg.setSearchMethod(tree);
-	 reg.setDistanceThreshold(1000);
-	 reg.setPointColorThreshold(4.7);
+	 reg.setDistanceThreshold(100);
+	 reg.setPointColorThreshold(2.7);
 	 reg.setRegionColorThreshold(7);
-	 reg.setMinClusterSize(500);
-	
+	 reg.setMinClusterSize(200);
+	 //reg.setSearchMethod(tree);
+	 //reg.setDistanceThreshold(1000);
+	 //reg.setPointColorThreshold(5.7);
+	 //reg.setRegionColorThreshold(7);
+	 //reg.setMinClusterSize(500);
+
 	 std::vector <pcl::PointIndices> clusters;
 	 reg.extract(clusters);
 	 std::vector<PointCloud<PointXYZRGB>::Ptr> results;
@@ -631,7 +636,7 @@ static void firstPass(float resolutionMult, int outbuf){
 
 			a = alph;
 			s = saturation;
-			ps = 1.001;
+			ps = 1.0005;
 			gProgram->setUniform("saturation", s);
 			gProgram->setUniform("resolution", resolutions[j] * res);
 			gProgram->setUniform("alph", a);
@@ -832,7 +837,7 @@ static void finalArtPass(){
 	rttArtProgram->stopUsing();
 	
 }
-static void finalPass(){
+static void finalPass(int blend){
 	glClearColor(1.0,1.0, 1.0, 1);
 	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -843,7 +848,7 @@ static void finalPass(){
 	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(0));
 	rttProgram->setUniform("texture_color", 2); 
 	glActiveTexture(GL_TEXTURE0 + 3);
-	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(2));
+	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(blend));
 	rttProgram->setUniform("texture_blur", 3);
 
 	glBindVertexArray(rtt_vao);
@@ -882,12 +887,21 @@ static void threeDRender(){
 	firstPass(1 + epsilon,0);
 	checkError("first pass");
 	//pass 2: blur 
-	secondPass(9);
+	secondPass(3);
 	checkError("third pass");
 
-	finalPass();
+	finalPass(2);
 	//debugPass();
 }
+
+static void threeDRenderNoBlur(){
+	firstPass(1 + epsilon, 0);
+	checkError("first pass");
+	//pass 2: blur 
+	finalPass(0);
+	//debugPass();
+}
+
 static void cloudRender(){
 	glPointSize(3.0);
 	glLineWidth(3.0);
@@ -911,7 +925,7 @@ static void cloudRender(){
 	for (int j = 0; j < gVAOs[cloud].size(); j++){
 		// bind the VAO
 
-		//g2Program->setUniform("defaultColor", defColors[j]);
+		g2Program->setUniform("defaultColor", defColors[j]);
 		glBindVertexArray(gVAOs[cloud][j]);
 		// draw the VAO
 		glDrawArrays(GL_POINTS, 0, numElements[j]);
@@ -928,7 +942,8 @@ static void Render() {
 		threeDRender();
 	}
 	else{
-		cloudRender();
+		threeDRenderNoBlur();
+		//cloudRender();
 	}
 
     // swap the display buffers (displays what was just drawn)
@@ -945,7 +960,7 @@ void Update(float secondsElapsed) {
     //while(gDegreesRotated > 0.0f) gDegreesRotated += 360.0f;
 
     //move position of camera based on WASD keys, and XZ keys for up and down
-    const float moveSpeed = 0.03; //units per second
+    const float moveSpeed = 0.5; //units per second
     if(glfwGetKey(gWindow, 'S')){
         gCamera.offsetPosition(secondsElapsed * moveSpeed * -gCamera.forward());
     } else if(glfwGetKey(gWindow, 'W')){
@@ -1040,6 +1055,47 @@ void OnResize(GLFWwindow* window, int width, int height){
 	wHeight = height;
 }
 
+void init(){
+	// OpenGL settings
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	// load vertex and fragment shaders into opengl
+	LoadShaders();
+
+	// load the texture
+	LoadTexture();
+
+	// create buffer and fill it with the points of the triangle
+	string str2 = ".ply";
+	std::size_t found = cloudName.find(str2);
+	if (found == std::string::npos){
+		vector<string> clouds = GetFilesInDirectory(cloudName);
+		for (int i = 0; i < clouds.size(); i++){
+			LoadCloud(clouds[i]);
+		}
+	}
+	else{
+		LoadCloud(cloudName);
+	}
+
+	LoadRTTVariables();
+	//create frame buffer
+	wWidth = SCREEN_SIZE.x;
+	wHeight = SCREEN_SIZE.y;
+	gridSizeBig = 25;
+	gridSizeSmall = 18;
+	fbo.GenerateFBO(wWidth, wHeight, 4);
+	fboGridBig.GenerateFBO(wWidth / gridSizeBig, wHeight / gridSizeBig, 1);
+	fboGridSmall.GenerateFBO(wWidth / gridSizeSmall, wHeight / gridSizeSmall, 1);
+
+	// setup gCamera
+	gCamera.setPosition(glm::vec3(0, 0, 0));
+
+	gCamera.setViewportAspectRatio(SCREEN_SIZE.x / SCREEN_SIZE.y);
+}
+
 // the program starts here
 void AppMain() {
     // initialise GLFW
@@ -1058,7 +1114,7 @@ void AppMain() {
         throw std::runtime_error("glfwCreateWindow failed. Can your hardware handle OpenGL 3.2?");
 
     // GLFW settings
-    glfwSetInputMode(gWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(gWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     glfwSetCursorPos(gWindow, 0, 0);
     glfwSetScrollCallback(gWindow, OnScroll);
 	glfwMakeContextCurrent(gWindow);
@@ -1081,44 +1137,7 @@ void AppMain() {
     if(!GLEW_VERSION_3_2)
         throw std::runtime_error("OpenGL 3.2 API is not available.");
 
-    // OpenGL settings
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-	glEnable(GL_BLEND); 
-	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    // load vertex and fragment shaders into opengl
-    LoadShaders();
-
-    // load the texture
-    LoadTexture();
-
-    // create buffer and fill it with the points of the triangle
-	string str2 = ".ply";
-	std::size_t found = cloudName.find(str2);
-	if (found == std::string::npos){
-		vector<string> clouds = GetFilesInDirectory(cloudName);
-		for (int i = 0; i < clouds.size(); i++){
-			LoadCloud(clouds[i]);
-		}
-	}
-	else{
-		LoadCloud(cloudName);
-	}
-
-	LoadRTTVariables();
-	//create frame buffer
-	wWidth = SCREEN_SIZE.x;
-	wHeight = SCREEN_SIZE.y;
-	gridSizeBig = 25;
-	gridSizeSmall =18;
-	fbo.GenerateFBO(wWidth, wHeight,4);
-	fboGridBig.GenerateFBO(wWidth / gridSizeBig, wHeight / gridSizeBig,1);
-	fboGridSmall.GenerateFBO(wWidth / gridSizeSmall, wHeight / gridSizeSmall,1);
-
-    // setup gCamera
-    gCamera.setPosition(glm::vec3(0,0,0));
-	
-    gCamera.setViewportAspectRatio(SCREEN_SIZE.x / SCREEN_SIZE.y);
+	init();
 
     // run while the window is open
     double lastTime = glfwGetTime();
