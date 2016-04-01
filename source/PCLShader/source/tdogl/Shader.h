@@ -20,12 +20,17 @@
 
 #include <GL/glew.h>
 #include <string>
-
+#include <vector>
 namespace tdogl {
 
     /**
      Represents a compiled OpenGL shader.
      */
+	struct ShaderMacroStruct{
+		std::string macro;
+		std::string value;
+	};
+	
     class Shader { 
     public:
         
@@ -38,7 +43,7 @@ namespace tdogl {
          
          @throws std::exception if an error occurs.
          */
-        static Shader shaderFromFile(const std::string& filePath, GLenum shaderType);
+		static Shader shaderFromFile(const std::string& filePath, GLenum shaderType,std::vector<tdogl::ShaderMacroStruct>	shadersMacroList);
         
         
         /**

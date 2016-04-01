@@ -18,7 +18,6 @@
 
 #include "platform.hpp"
 
-
 // third-party libraries
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -55,6 +54,13 @@
 using namespace pcl;
 // constants
 const glm::vec2 SCREEN_SIZE(800, 600);
+#define ABUFFER_SIZE			40
+#define ABUFFER_PAGE_SIZE		4
+
+//Because current glew does not define it
+#ifndef GL_SHADER_GLOBAL_ACCESS_BARRIER_BIT_NV
+#define GL_SHADER_GLOBAL_ACCESS_BARRIER_BIT_NV             0x00000010
+#endif
 
 // globals
 GLFWwindow* gWindow = NULL;
@@ -66,6 +72,8 @@ std::vector<tdogl::Texture*> htextures;
 std::vector<tdogl::Texture*> vtextures;
 std::vector<tdogl::Texture*> rtextures;
 tdogl::Program* gProgram = NULL;
+tdogl::Program* preAbuffProgram = NULL;
+tdogl::Program* postAbuffProgram = NULL;
 tdogl::Program* blurProgram = NULL;
 tdogl::Program* rttProgram = NULL;
 tdogl::Program* diffProgram = NULL;
@@ -86,10 +94,10 @@ std::vector<float> resolutions;
 unsigned int rtt_vbo, rtt_ibo, rtt_vao;
 int wWidth, wHeight;
 int gridSizeBig, gridSizeSmall;
-bool paint = true;
+bool paint = false;
 int cloud = 0;
 std::vector<glm::vec4> defColors;
-
+glm::vec4 pBackgroundColor(1, 1, 1, 1);
 float alph = 1.0;
 float saturation = 1.2;
 float epsilon = 0.3;
@@ -99,6 +107,58 @@ std::string cloudName;
 int style = 0;
 
 using namespace std;
+
+
+//ABuffer textures (pABufferUseTextures)
+GLuint abufferID = 0;
+GLuint abufferZID = 0;
+GLuint abufferCounterID = 0;
+
+//ABuffer global memory addresses
+GLuint64EXT abufferGPUAddress = 0;
+GLuint64EXT abufferZGPUAddress = 0;
+GLuint64EXT abufferCounterGPUAddress = 0;
+
+int pResolveAlphaCorrection = 0;
+int pABufferUseSorting =1;
+GLuint vertexBufferName = 0;
+GLuint vertexAttribName = 0;
+std::vector<tdogl::ShaderMacroStruct>	shadersMacroList;
+
+
+void resetShadersGlobalMacros(){
+	shadersMacroList.clear();
+}
+
+void setShadersGlobalMacro(const char *macro, int val){
+	tdogl::ShaderMacroStruct ms;
+	ms.macro = std::string(macro);
+
+	char buff[128];
+	sprintf(buff, "%d", val);
+	ms.value = std::string(buff);
+
+	shadersMacroList.push_back(ms);
+}
+void setShadersGlobalMacro(const char *macro, float val){
+	tdogl::ShaderMacroStruct ms;
+	ms.macro = std::string(macro);
+
+	char buff[128];
+	sprintf(buff, "%ff", val);
+
+	ms.value = std::string(buff);
+
+	shadersMacroList.push_back(ms);
+}
+
+static void checkError(const char* msg){
+	GLenum error;
+	error = glGetError();
+	if (error != GL_NO_ERROR)
+		std::cerr << "OpenGL Error " << msg << " " << error << std::endl;
+
+}
 vector<string> GetFilesInDirectory(const string directory)
 {
 	HANDLE dir;
@@ -128,49 +188,113 @@ vector<string> GetFilesInDirectory(const string directory)
 	return out;
 }
 
-static void LoadShaders() {
-    std::vector<tdogl::Shader> shaders;
-	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath("vertex-shader.vert"), GL_VERTEX_SHADER));
-	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath("fragment-shader.frag"), GL_FRAGMENT_SHADER));
-	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath("normals-shader.geom"), GL_GEOMETRY_SHADER));
-    gProgram = new tdogl::Program(shaders);
-	glBindFragDataLocation(gProgram->object(), 0, "finalColor");
+
+tdogl::Program *createProgram(std::string vertexShader, std::string fragmentShader, string output, std::string geometryShader=""){
+	std::vector<tdogl::Shader> shaders;
+	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath(vertexShader), GL_VERTEX_SHADER,shadersMacroList));
+	shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath(fragmentShader), GL_FRAGMENT_SHADER, shadersMacroList));
+	if (geometryShader != "")
+		shaders.push_back(tdogl::Shader::shaderFromFile(ResourcePath(geometryShader), GL_GEOMETRY_SHADER, shadersMacroList));
+
+	tdogl::Program *res = new tdogl::Program(shaders);
+	glBindFragDataLocation(res->object(), 0, output.c_str());
+	return res;
+}
+
+static void LoadShaders_2D(){
+
+	diffProgram = createProgram("rtt.vert", "diff.frag","BrushColor");
 	
+	rttArtProgram = createProgram("rtt.vert", "rttArt.frag","FinalColor");
+}
+
+static void LoadShaders_3D(){
+
+	preAbuffProgram = createProgram("passThrough.vert", "clearABuffer.frag", "");
+
+	gProgram = createProgram("vertex-shader.vert", "fragment-shader.frag", "finalColor","normals-shader.geom");
+	
+	postAbuffProgram = createProgram("passThrough.vert", "dispABuffer.frag", "outFragColor");
+
+	rttProgram = createProgram("rtt.vert", "rtt.frag", "outColor");
+
+	blurProgram = createProgram("rtt.vert", "blur.frag", "FragmentColor");
+
+	g2Program = createProgram("simp.vert", "simp.frag", "outColor");
+	
+}
+static void LoadABuffer(){
+	//Full screen quad initialization
+	glGenVertexArrays(1, &vertexAttribName);
+	glBindVertexArray(vertexAttribName);
+
+	glGenBuffers(1, &vertexBufferName);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferName);
+	//Full screen quad vertices definition
+	const GLfloat quadVArray[] = {
+		-1.0f, -1.0f, 0.0f, 1.0f,
+		1.0f, -1.0f, 0.0f, 1.0f,
+		-1.0f, 1.0f, 0.0f, 1.0f,
+		1.0f, -1.0f, 0.0f, 1.0f,
+		1.0f, 1.0f, 0.0f, 1.0f,
+		-1.0f, 1.0f, 0.0f, 1.0f
+	};
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVArray), quadVArray, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(preAbuffProgram->attrib("vertexPos"));
+	glVertexAttribPointer(preAbuffProgram->attrib("vertexPos"), 4, GL_FLOAT, GL_FALSE,
+		sizeof(GLfloat) * 4, 0);
+
+	checkError("initBuffer");
+
+	//Abuffer
+	if (!abufferID)
+		glGenBuffers(1, &abufferID);
+	glBindBuffer(GL_ARRAY_BUFFER_ARB, abufferID);
+
+	glBufferData(GL_ARRAY_BUFFER_ARB, wWidth*wHeight*sizeof(float) * 4 * ABUFFER_SIZE, NULL, GL_STATIC_DRAW);
+	glMakeBufferResidentNV(GL_ARRAY_BUFFER_ARB, GL_READ_WRITE);
+	glGetBufferParameterui64vNV(GL_ARRAY_BUFFER_ARB, GL_BUFFER_GPU_ADDRESS_NV, &abufferGPUAddress);
+
+	if (!abufferZID)
+		glGenBuffers(1, &abufferZID);
+	glBindBuffer(GL_ARRAY_BUFFER_ARB, abufferZID);
+
+	glBufferData(GL_ARRAY_BUFFER_ARB, wWidth*wHeight*sizeof(float) * 4 * ABUFFER_SIZE, NULL, GL_STATIC_DRAW);
+	glMakeBufferResidentNV(GL_ARRAY_BUFFER_ARB, GL_READ_WRITE);
+	glGetBufferParameterui64vNV(GL_ARRAY_BUFFER_ARB, GL_BUFFER_GPU_ADDRESS_NV, &abufferZGPUAddress);
+
+	//AbufferIdx
+	if (!abufferCounterID)
+		glGenBuffers(1, &abufferCounterID);
+	glBindBuffer(GL_ARRAY_BUFFER_ARB, abufferCounterID);
+
+	glBufferData(GL_ARRAY_BUFFER_ARB, wWidth*wHeight*sizeof(unsigned int), NULL, GL_STATIC_DRAW);
+	glMakeBufferResidentNV(GL_ARRAY_BUFFER_ARB, GL_READ_WRITE);
+	glGetBufferParameterui64vNV(GL_ARRAY_BUFFER_ARB, GL_BUFFER_GPU_ADDRESS_NV, &abufferCounterGPUAddress);
+
+	checkError("Abuffer");
+}
 
 
+static void LoadShaders() {
 
-	std::vector<tdogl::Shader> shaders2;
-	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
-	shaders2.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.frag"), GL_FRAGMENT_SHADER));
-	rttProgram = new tdogl::Program(shaders2);
-	glBindFragDataLocation(rttProgram->object(), 0, "outColor");
+	resetShadersGlobalMacros();
 
+	setShadersGlobalMacro("ABUFFER_SIZE", ABUFFER_SIZE);
+	setShadersGlobalMacro("SCREEN_WIDTH", wWidth);
+	setShadersGlobalMacro("SCREEN_HEIGHT", wHeight);
 
-	std::vector<tdogl::Shader> shaders3;
-	shaders3.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
-	shaders3.push_back(tdogl::Shader::shaderFromFile(ResourcePath("blur.frag"), GL_FRAGMENT_SHADER));
-	blurProgram = new tdogl::Program(shaders3);
-	glBindFragDataLocation(blurProgram->object(), 0, "FragmentColor");
+	setShadersGlobalMacro("BACKGROUND_COLOR_R", pBackgroundColor.r);
+	setShadersGlobalMacro("BACKGROUND_COLOR_G", pBackgroundColor.g);
+	setShadersGlobalMacro("BACKGROUND_COLOR_B", pBackgroundColor.b);
+	setShadersGlobalMacro("ABUFFER_RESOLVE_USE_SORTING", pABufferUseSorting);
+	setShadersGlobalMacro("ABUFFER_RESOLVE_ALPHA_CORRECTION", pResolveAlphaCorrection);
+	setShadersGlobalMacro("ABUFFER_PAGE_SIZE", ABUFFER_PAGE_SIZE);
+//	setShadersGlobalMacro("ABUFFER", aBuffer);
 
-	std::vector<tdogl::Shader> shaders4;
-	shaders4.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
-	shaders4.push_back(tdogl::Shader::shaderFromFile(ResourcePath("diff.frag"), GL_FRAGMENT_SHADER));
-	diffProgram = new tdogl::Program(shaders4);
-	glBindFragDataLocation(diffProgram->object(), 0, "BrushColor");
-
-	std::vector<tdogl::Shader> shaders5;
-	shaders5.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rtt.vert"), GL_VERTEX_SHADER));
-	shaders5.push_back(tdogl::Shader::shaderFromFile(ResourcePath("rttArt.frag"), GL_FRAGMENT_SHADER));
-	rttArtProgram = new tdogl::Program(shaders5);
-	glBindFragDataLocation(rttArtProgram->object(), 0, "finalColor");
-
-	std::vector<tdogl::Shader> shaders6;
-	shaders6.push_back(tdogl::Shader::shaderFromFile(ResourcePath("simp.vert"), GL_VERTEX_SHADER));
-	shaders6.push_back(tdogl::Shader::shaderFromFile(ResourcePath("simp.frag"), GL_FRAGMENT_SHADER));
-//	shaders6.push_back(tdogl::Shader::shaderFromFile(ResourcePath("ref-shader.geom"), GL_GEOMETRY_SHADER));
-	g2Program = new tdogl::Program(shaders6);
-	glBindFragDataLocation(g2Program->object(), 0, "outColor");
-
+	LoadShaders_3D();
+	LoadShaders_2D();
 	GLenum error = glGetError();
 	if (error != GL_NO_ERROR)
 		std::cerr << "OpenGL Error LoadShaders" << error << std::endl;
@@ -488,11 +612,11 @@ static void LoadTexture() {
 		s3b << "roundbrush\\b" << i << ".png"; */
 		//impressionism
 		s1 << "vert3brush\\b" << i << ".png";
-		s1b << "vertbrush\\b" << i << ".png";
+		s1b << "vertbrushbig\\b" << i << ".png";
 		s2 << "horiz3brush\\b" << i << ".png";
-		s2b << "horizbrush\\b" << i << ".png";
+		s2b << "vertbrushbig\\b" << i << ".png";
 		s3 << "round3brush\\b" << i << ".png";
-		s3b << "roundbrush\\b" << i << ".png"; 
+		s3b << "vertbrushbig\\b" << i << ".png"; 
 
 		tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s1.str()));
 		bmp.flipVertically();
@@ -554,13 +678,7 @@ static void LoadTexture() {
 }
 
 
-static void checkError(const char* msg){
-	GLenum error;
-	error = glGetError();
-	if (error != GL_NO_ERROR)
-		std::cerr << "OpenGL Error " << msg << " " << error << std::endl;
 
-}
 
 static void firstPass(float resolutionMult, int outbuf){
 
@@ -582,6 +700,7 @@ static void firstPass(float resolutionMult, int outbuf){
 		// set the "model" uniform in the vertex shader, based on the gDegreesRotated global
 		gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
 
+		gProgram->setUniform("aBuffer", false);
 		// bind the texture and set the "tex" uniform in the fragment shader
 	
 		
@@ -642,7 +761,7 @@ static void firstPass(float resolutionMult, int outbuf){
 			gProgram->setUniform("alph", a);
 			gProgram->setUniform("scale", ps);
 			// draw the VAO
-			glDrawArrays(GL_POINTS, 0, numElements[j]);
+			//glDrawArrays(GL_POINTS, 0, numElements[j]);
 
 			checkError("first pass 2");
 
@@ -884,10 +1003,18 @@ static void twoDRender(){
 }
 
 static void threeDRender(){
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glEnable(GL_CULL_FACE);
+	////glEnable(GL_STENCIL_TEST);
+	glDepthMask(GL_TRUE);
+
 	firstPass(1 + epsilon,0);
 	checkError("first pass");
 	//pass 2: blur 
-	secondPass(3);
+	secondPass(1);
 	checkError("third pass");
 
 	finalPass(2);
@@ -895,6 +1022,14 @@ static void threeDRender(){
 }
 
 static void threeDRenderNoBlur(){
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glEnable(GL_CULL_FACE);
+	////glEnable(GL_STENCIL_TEST);
+	glDepthMask(GL_TRUE);
+	
 	firstPass(1 + epsilon, 0);
 	checkError("first pass");
 	//pass 2: blur 
@@ -935,14 +1070,162 @@ static void cloudRender(){
 	glBindVertexArray(0);
 	g2Program->stopUsing();
 }
+
+
+void drawQuad(tdogl::Program *prog) {
+
+	glUseProgram(prog->object());
+
+	glBindVertexArray(vertexAttribName);
+	checkError("error pointer");
+	glDrawArrays(GL_TRIANGLES, 0, 24);
+
+	checkError ("drawQuad");
+}
+
+void clearABuffer(){
+	//Assign uniform parameters
+
+	glProgramUniformui64NV(preAbuffProgram->object(), preAbuffProgram->uniform("d_abuffer"), abufferGPUAddress);
+	glProgramUniformui64NV(preAbuffProgram->object(), preAbuffProgram->uniform("d_abufferZ"), abufferZGPUAddress);
+	glProgramUniformui64NV(preAbuffProgram->object(), preAbuffProgram->uniform("d_abufferIdx"), abufferCounterGPUAddress);
+
+	//Render the full screen quad
+	drawQuad(preAbuffProgram);
+
+	//Ensure that all global memory write are done before starting to render
+	glMemoryBarrierEXT(GL_SHADER_GLOBAL_ACCESS_BARRIER_BIT_NV);
+	
+	checkError("clear a buffer ");
+}
+
+void resolveABuffer(){
+	//Ensure that all global memory write are done before resolving
+	glMemoryBarrierEXT(GL_SHADER_GLOBAL_ACCESS_BARRIER_BIT_NV);
+
+	glProgramUniformui64NV(postAbuffProgram->object(), postAbuffProgram->uniform("d_abuffer"), abufferGPUAddress);
+	glProgramUniformui64NV(postAbuffProgram->object(), postAbuffProgram->uniform("d_abufferZ"), abufferZGPUAddress);
+	glProgramUniformui64NV(postAbuffProgram->object(), postAbuffProgram->uniform("d_abufferIdx"), abufferCounterGPUAddress);
+	drawQuad(postAbuffProgram);
+}
+
+static void aBufferRender(float resolutionMult){
+
+	glDisable(GL_CULL_FACE);
+	//Disable depth test
+	glDisable(GL_DEPTH_TEST);
+	//Disable stencil test
+	glDisable(GL_STENCIL_TEST);
+	//Disable blending
+	glDisable(GL_BLEND);
+
+	glDepthMask(GL_FALSE);
+
+	// clear everything
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+
+	clearABuffer();
+
+	//stroke based rendering
+	// bind the program (the shaders)
+	gProgram->use();
+	gProgram->setUniform("camera", gCamera.matrix());
+	gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
+	gProgram->setUniform("aBuffer", true);
+
+	// bind the texture and set the "tex" uniform in the fragment shader
+
+	glProgramUniformui64NV(gProgram->object(), gProgram->uniform("d_abuffer"), abufferGPUAddress);
+	glProgramUniformui64NV(gProgram->object(), gProgram->uniform("d_abufferZ"), abufferZGPUAddress);
+	glProgramUniformui64NV(gProgram->object(), gProgram->uniform("d_abufferIdx"), abufferCounterGPUAddress);
+
+
+	for (int j = 0; j < gVAOs[cloud].size(); j++){
+		glBindVertexArray(gVAOs[cloud][j]);
+		
+		//loading textures
+		for (int i = 0; i < 10; i++){
+			glActiveTexture(GL_TEXTURE0 + i);
+			int idx = style > 15 ? 1 : 0;
+			if (brushtype[j] == 0)
+				glBindTexture(GL_TEXTURE_2D, vBtextures[2 * i + idx]->object());
+			if (brushtype[j] == 1)
+				glBindTexture(GL_TEXTURE_2D, hBtextures[2 * i + idx]->object());
+			if (brushtype[j] == 2)
+				glBindTexture(GL_TEXTURE_2D, rBtextures[2 * i + idx]->object());
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			std::stringstream s;
+			s << "tex" << i;
+			gProgram->setUniform(s.str().c_str(), i);
+		}
+
+
+		gProgram->setUniform("resolution", resolutions[j] * resolutionMult);
+		float a = 1.0;
+		float s = 1.0;
+		float ps = 1.0; 
+		gProgram->setUniform("saturation", s);
+		gProgram->setUniform("alph", a);
+		gProgram->setUniform("scale", ps);
+		// draw the VAO
+		glDrawArrays(GL_POINTS, 0, numElements[j]);
+
+		checkError("first pass 1");
+		for (int i = 0; i < 10; i++){
+			glActiveTexture(GL_TEXTURE0 + i);
+			int idx = style > 15 ? 1 : 0;
+			if (brushtype[j] == 0)
+				glBindTexture(GL_TEXTURE_2D, vtextures[2 * i + idx]->object());
+			if (brushtype[j] == 1)
+				glBindTexture(GL_TEXTURE_2D, htextures[2 * i + idx]->object());
+			if (brushtype[j] == 2)
+				glBindTexture(GL_TEXTURE_2D, rtextures[2 * i + idx]->object());
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			std::stringstream s;
+			s << "tex" << i;
+			gProgram->setUniform(s.str().c_str(), i);
+		}
+		float res = resolutionMult * patchScale;
+
+		a = alph;
+		s = saturation;
+		ps = 1.0005;
+		gProgram->setUniform("saturation", s);
+		gProgram->setUniform("resolution", resolutions[j] * res);
+		gProgram->setUniform("alph", a);
+		gProgram->setUniform("scale", ps);
+		// draw the VAO
+		//glDrawArrays(GL_POINTS, 0, numElements[j]);
+
+		checkError("first pass 2");
+
+	}
+
+	// unbind the VAO, the program and the texture
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	gProgram->stopUsing();
+
+	resolveABuffer();
+
+
+}
+
 // draws a single frame
 static void Render() {
 	//twoDRender();
 	if (paint){
-		threeDRender();
+		aBufferRender(1+ epsilon);
+		//threeDRender();
 	}
 	else{
 		threeDRenderNoBlur();
+			//threeDRender();
 		//cloudRender();
 	}
 
@@ -951,7 +1234,7 @@ static void Render() {
 
 }
 
-
+float paintCount = 0;
 // update the scene based on the time elapsed since last update
 void Update(float secondsElapsed) {
     //rotate the cube
@@ -979,7 +1262,11 @@ void Update(float secondsElapsed) {
 		cloud++;
 		if (cloud == gVAOs.size()) cloud = 0;
 	}else if (glfwGetKey(gWindow, 'P')){
-		paint = !paint;
+		paintCount += secondsElapsed;
+		if (paintCount > 1){
+			paint = !paint;
+			paintCount = 0;
+		}
 	}
 	else if (glfwGetKey(gWindow, 'F')){
 		alph += 0.01;
@@ -1046,23 +1333,29 @@ void OnError(int errorCode, const char* msg) {
 }
 
 void OnResize(GLFWwindow* window, int width, int height){
+	wWidth = width;
+	wHeight = height;
 	glViewport(0, 0, width, height);
 	gCamera.setViewportAspectRatio((float)width / (float)height);
+	LoadABuffer();
+	LoadShaders(); 
 	fbo.resize(width, height);
 	fboGridBig.resize(width / gridSizeBig, height / gridSizeBig);
 	fboGridSmall.resize(width / gridSizeSmall, height / gridSizeSmall);
-	wWidth = width;
-	wHeight = height;
+	
 }
 
 void init(){
-	// OpenGL settings
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+	wWidth = SCREEN_SIZE.x;
+	wHeight = SCREEN_SIZE.y;
+
+	
+
 	// load vertex and fragment shaders into opengl
 	LoadShaders();
+
+	LoadABuffer();
 
 	// load the texture
 	LoadTexture();
@@ -1082,8 +1375,6 @@ void init(){
 
 	LoadRTTVariables();
 	//create frame buffer
-	wWidth = SCREEN_SIZE.x;
-	wHeight = SCREEN_SIZE.y;
 	gridSizeBig = 25;
 	gridSizeSmall = 18;
 	fbo.GenerateFBO(wWidth, wHeight, 4);
@@ -1106,8 +1397,8 @@ void AppMain() {
     // open a window with GLFW
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
     gWindow = glfwCreateWindow((int)SCREEN_SIZE.x, (int)SCREEN_SIZE.y, "OpenGL Tutorial", NULL, NULL);
     if(!gWindow)

@@ -1,4 +1,4 @@
-#version 150
+#version 450
 
 uniform mat4 camera;
 uniform mat4 model;
@@ -18,10 +18,9 @@ in Vertex
      
 out vec2 VertexUV;
 out vec4 VertexColor;
+smooth out vec4 fragPos;
 flat out int tex;
-out float rr;
-out float rg;
-out float rb;
+
 
 float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
@@ -51,9 +50,7 @@ void main() {
 	//float x2;
 	
 	tex = (int(rand(vec2(nx,ny))*10000))%10;
-	rr = rand(vec2(nx,nz));
-	rg = rand(vec2(nz,ny));
-	rb = rand(vec2(ny,nx));
+
 	//x1 = sqrt(1/(1+(pow(nx,2)/pow(nz,2))));
 	//x2 = -x1;
 	//z1 = - nx*x1/nz;
@@ -82,25 +79,29 @@ void main() {
      
      
     vec3 va = P - (right + up) * size;
-    gl_Position =  camera * model *vec4(va, 1.0);
+    fragPos =  camera * model *vec4(va, 1.0);
+	gl_Position = fragPos;
     VertexUV = vec2(0.0, 0.0);
     VertexColor = c;
     EmitVertex();  
       
     vec3 vb = P - (right - up) * size;
-    gl_Position = camera * model *vec4(vb, 1.0);
+    fragPos = camera * model *vec4(vb, 1.0);
+	gl_Position = fragPos;
     VertexUV = vec2(0.0, tiling);
     VertexColor = c;
     EmitVertex();  
      
     vec3 vd = P + (right - up) * size;
-    gl_Position = camera * model *vec4(vd, 1.0);
+    fragPos = camera * model *vec4(vd, 1.0);
+	gl_Position = fragPos;
     VertexUV = vec2(tiling, 0.0);
     VertexColor = c;
     EmitVertex();  
      
     vec3 vc = P + (right + up) * size;
-    gl_Position =camera * model * vec4(vc, 1.0);
+    fragPos =camera * model * vec4(vc, 1.0);
+	gl_Position = fragPos;
     VertexUV = vec2(tiling, tiling);
     VertexColor = c;
     EmitVertex();  

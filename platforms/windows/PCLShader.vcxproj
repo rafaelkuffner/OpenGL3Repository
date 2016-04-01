@@ -112,8 +112,13 @@
     <Image Include="..\..\source\PCLShader\resources\wooden-crate.jpg" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\source\PCLShader\resources\ABufferShading.glsl" />
+    <None Include="..\..\source\PCLShader\resources\ABufferSort.glsl" />
     <None Include="..\..\source\PCLShader\resources\blur.frag" />
+    <None Include="..\..\source\PCLShader\resources\clearABuffer.frag" />
     <None Include="..\..\source\PCLShader\resources\diff.frag" />
+    <None Include="..\..\source\PCLShader\resources\dispABuffer.frag" />
+    <None Include="..\..\source\PCLShader\resources\passThrough.vert" />
     <None Include="..\..\source\PCLShader\resources\splat-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\normals-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\ref-shader.geom" />

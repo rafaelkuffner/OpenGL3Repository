@@ -50,11 +50,11 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\..\source\PCLShader\resources\vertex-shader.vert">
-      <Filter>resources</Filter>
-    </Text>
     <Text Include="..\..\source\PCLShader\resources\fragment-shader.frag">
-      <Filter>resources</Filter>
+      <Filter>resources\Main Shaders</Filter>
+    </Text>
+    <Text Include="..\..\source\PCLShader\resources\vertex-shader.vert">
+      <Filter>resources\Main Shaders</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>
@@ -70,37 +70,61 @@
     <Filter Include="common">
       <UniqueIdentifier>{73cc1e75-3a01-4b2b-a54e-32439ee2ab3d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="resources\Main Shaders">
+      <UniqueIdentifier>{6ff84204-9da9-4523-8aae-a773ff667c93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\A Buffer">
+      <UniqueIdentifier>{ea4ee50c-dff8-4321-ab31-2c9e83efef8e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\Aux Filters">
+      <UniqueIdentifier>{fc12c794-6d3d-45f5-9631-c4ee5f60cd4f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\source\PCLShader\resources\normals-shader.geom">
-      <Filter>resources</Filter>
+      <Filter>resources\Main Shaders</Filter>
     </None>
-    <None Include="..\..\source\PCLShader\resources\ref-shader.geom">
-      <Filter>resources</Filter>
+    <None Include="..\..\source\PCLShader\resources\ABufferShading.glsl">
+      <Filter>resources\A Buffer</Filter>
     </None>
-    <None Include="..\..\source\PCLShader\resources\rtt.frag">
-      <Filter>resources</Filter>
+    <None Include="..\..\source\PCLShader\resources\ABufferSort.glsl">
+      <Filter>resources\A Buffer</Filter>
     </None>
-    <None Include="..\..\source\PCLShader\resources\rtt.vert">
-      <Filter>resources</Filter>
+    <None Include="..\..\source\PCLShader\resources\clearABuffer.frag">
+      <Filter>resources\A Buffer</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\dispABuffer.frag">
+      <Filter>resources\A Buffer</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\passThrough.vert">
+      <Filter>resources\A Buffer</Filter>
     </None>
     <None Include="..\..\source\PCLShader\resources\blur.frag">
-      <Filter>resources</Filter>
+      <Filter>resources\Aux Filters</Filter>
     </None>
     <None Include="..\..\source\PCLShader\resources\diff.frag">
-      <Filter>resources</Filter>
+      <Filter>resources\Aux Filters</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\ref-shader.geom">
+      <Filter>resources\Aux Filters</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\rtt.frag">
+      <Filter>resources\Aux Filters</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\rtt.vert">
+      <Filter>resources\Aux Filters</Filter>
     </None>
     <None Include="..\..\source\PCLShader\resources\rttArt.frag">
-      <Filter>resources</Filter>
-    </None>
-    <None Include="..\..\source\PCLShader\resources\simp.vert">
-      <Filter>resources</Filter>
+      <Filter>resources\Aux Filters</Filter>
     </None>
     <None Include="..\..\source\PCLShader\resources\simp.frag">
-      <Filter>resources</Filter>
+      <Filter>resources\Aux Filters</Filter>
+    </None>
+    <None Include="..\..\source\PCLShader\resources\simp.vert">
+      <Filter>resources\Aux Filters</Filter>
     </None>
     <None Include="..\..\source\PCLShader\resources\splat-shader.geom">
-      <Filter>resources</Filter>
+      <Filter>resources\Aux Filters</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

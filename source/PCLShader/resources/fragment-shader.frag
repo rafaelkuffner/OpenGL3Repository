@@ -1,11 +1,27 @@
-#version 150
+#version 450
 
+#extension GL_NV_gpu_shader5 : enable
+#extension GL_EXT_shader_image_load_store : enable
+#extension GL_NV_shader_buffer_load : enable
+#extension GL_EXT_bindable_uniform : enable
+#extension GL_NV_shader_buffer_store : enable
+
+//Macros changed from the C++ side
+#define ABUFFER_USE_TEXTURES	1
+#define SCREEN_WIDTH	512
+#define SCREEN_HEIGHT	512
+#define ABUFFER_RESOLVE_ALPHA_CORRECTION 0
+#define ABUFFER_RESOLVE_USE_SORTING 0
+#define BACKGROUND_COLOR_B 1.000000f
+#define BACKGROUND_COLOR_G 1.000000f
+#define BACKGROUND_COLOR_R 1.000000f
+#define ABUFFER_SIZE 16
+#define ABUFFER_PAGE_SIZE 4
+
+smooth in vec4 fragPos;
 in vec4 VertexColor;
 in vec2 VertexUV;
 flat in int tex;
-in float rr;
-in float rg;
-in float rb;
 
 uniform sampler2D tex0;
 uniform sampler2D tex1;
@@ -21,10 +37,16 @@ uniform sampler2D tex10;
 
 uniform float alph;
 uniform float saturation;
+uniform bool aBuffer;
+
+uniform coherent vec4 *d_abuffer;
+uniform coherent vec4 *d_abufferZ;
+uniform coherent uint *d_abufferIdx;
+
 out vec4 finalColor;
 
 
-void main() { 
+vec4 sbrColor(){
 	vec2 uv = VertexUV.xy;
 	vec4 t;
 	if(tex==0) t= texture(tex0,uv);
@@ -39,43 +61,43 @@ void main() {
 	else if(tex == 9) t= texture(tex9,uv);
 
 	vec3 normal;
-	if(t.a != 0){
-		t.a = t.a <0.2? 0.2:t.a*0.7;
-		normal.x = dFdx(t.a);
-		normal.y = dFdy(t.a);
-		normal.z = sqrt(1 - normal.x*normal.x - normal.y * normal.y); // Reconstruct z component to get a unit normal.
-		t.a = 1.0;
-	}else{
-		//t = vec4(1,1,1,1);
+	if(t.a ==0){
 		discard;
 	}
-	
 	t = t*VertexColor;
-	
+	if(aBuffer)
+		t.a *= alph;
+	else
+		t.a = alph;
 	float  P=sqrt(t.r*t.r*0.299+t.g*t.g*0.587+t.b*t.b*0.114 ) ;
 
 	t.r=P+((t.r)-P)*(saturation+0.3);
 	t.g=P+((t.g)-P)*(saturation+0.3);
 	t.b=P+((t.b)-P)*(saturation+0.3); 
-	float cVr = (rr -0.5)*0.01;
-	float cVg = (rg -0.5)*0.01;
-	float cVb = (rb -0.5)*0.01;
-	if(saturation != 1){
-		t = vec4(alph*(t.r+cVr),alph*(t.g+cVg),alph*(t.b+cVb),alph);
-		//pointilism orange
-		//t = vec4(1+cVr,0.27+cVg,0+cVb,alph);
-		//if(t.r > 1) t.r = 1;
-		//if(t.b< 0) t.b = 0;
+	
+	return  t;
+}
+
+
+void main() { 
+	if(aBuffer){
+		ivec2 coords=ivec2(gl_FragCoord.xy);
+		if(coords.x>=0 && coords.y>=0 && coords.x<SCREEN_WIDTH && coords.y<SCREEN_HEIGHT ){
+			
+			int abNumFrag=(int)d_abufferIdx[coords.x+coords.y*SCREEN_WIDTH];
+				if(abNumFrag < ABUFFER_SIZE-1){
+				int abidx=(int)atomicIncWrap(d_abufferIdx+coords.x+coords.y*SCREEN_WIDTH, ABUFFER_SIZE-1);
+	
+				//Create fragment to be stored
+				
+				vec4 col = sbrColor();
+				d_abuffer[coords.x+coords.y*SCREEN_WIDTH + (abidx*SCREEN_WIDTH*SCREEN_HEIGHT)]=col;
+				d_abufferZ[coords.x+coords.y*SCREEN_WIDTH + (abidx*SCREEN_WIDTH*SCREEN_HEIGHT)]=fragPos;
+			}
+		}
+		discard;
 	}
-	
-	
-	vec3 light_pos = normalize(vec3(1.0, 0.0, 1.5));  
-	    // Calculate the lighting diffuse value  
-    float diffuse = max(dot(normal, light_pos), 0.0);  
-    vec3 color = diffuse * t.rgb;      
-    // Set the output color of our current pixel   
-	
-	//finalColor = vec4(color,1.0);
-	finalColor = t;
-	
+	else{
+		finalColor = sbrColor();
+	}
 }
