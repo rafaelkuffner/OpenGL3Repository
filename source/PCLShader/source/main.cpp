@@ -54,7 +54,7 @@
 using namespace pcl;
 // constants
 const glm::vec2 SCREEN_SIZE(800, 600);
-#define ABUFFER_SIZE			40
+#define ABUFFER_SIZE			50
 #define ABUFFER_PAGE_SIZE		4
 
 //Because current glew does not define it
@@ -105,19 +105,13 @@ float patchScale = 0.7;
 // loads the vertex shader and fragment shader, and links them to make the global gProgram
 std::string cloudName;
 int style = 0;
-
 using namespace std;
-
 
 //ABuffer textures (pABufferUseTextures)
 GLuint abufferID = 0;
 GLuint abufferZID = 0;
 GLuint abufferCounterID = 0;
-
-//ABuffer global memory addresses
-GLuint64EXT abufferGPUAddress = 0;
-GLuint64EXT abufferZGPUAddress = 0;
-GLuint64EXT abufferCounterGPUAddress = 0;
+GLuint abufferCounterIncID = 0;
 
 int pResolveAlphaCorrection = 0;
 int pABufferUseSorting =1;
@@ -125,6 +119,8 @@ GLuint vertexBufferName = 0;
 GLuint vertexAttribName = 0;
 std::vector<tdogl::ShaderMacroStruct>	shadersMacroList;
 
+bool dirty = false;
+int cleanframes = 0;
 
 void resetShadersGlobalMacros(){
 	shadersMacroList.clear();
@@ -247,33 +243,74 @@ static void LoadABuffer(){
 
 	checkError("initBuffer");
 
-	//Abuffer
+
+	///ABuffer storage///
 	if (!abufferID)
-		glGenBuffers(1, &abufferID);
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, abufferID);
+		glGenTextures(1, &abufferID);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D_ARRAY, abufferID);
 
-	glBufferData(GL_ARRAY_BUFFER_ARB, wWidth*wHeight*sizeof(float) * 4 * ABUFFER_SIZE, NULL, GL_STATIC_DRAW);
-	glMakeBufferResidentNV(GL_ARRAY_BUFFER_ARB, GL_READ_WRITE);
-	glGetBufferParameterui64vNV(GL_ARRAY_BUFFER_ARB, GL_BUFFER_GPU_ADDRESS_NV, &abufferGPUAddress);
+	// Set filter
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	if (!abufferZID)
-		glGenBuffers(1, &abufferZID);
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, abufferZID);
+	//Texture creation
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, windowSize.x, windowSize.y*ABUFFER_SIZE, 0,  GL_RGBA, GL_FLOAT, 0);
+	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA32F, wWidth, wHeight, ABUFFER_SIZE, 0, GL_RGBA, GL_FLOAT, 0);
+	glBindImageTextureEXT(0, abufferID, 0, true, 0, GL_READ_WRITE, GL_RGBA32F);
 
-	glBufferData(GL_ARRAY_BUFFER_ARB, wWidth*wHeight*sizeof(float) * 4 * ABUFFER_SIZE, NULL, GL_STATIC_DRAW);
-	glMakeBufferResidentNV(GL_ARRAY_BUFFER_ARB, GL_READ_WRITE);
-	glGetBufferParameterui64vNV(GL_ARRAY_BUFFER_ARB, GL_BUFFER_GPU_ADDRESS_NV, &abufferZGPUAddress);
+	checkError("AbufferTex");
 
-	//AbufferIdx
+	///ABuffer per-pixel counter///
 	if (!abufferCounterID)
-		glGenBuffers(1, &abufferCounterID);
-	glBindBuffer(GL_ARRAY_BUFFER_ARB, abufferCounterID);
+		glGenTextures(1, &abufferCounterID);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, abufferCounterID);
 
-	glBufferData(GL_ARRAY_BUFFER_ARB, wWidth*wHeight*sizeof(unsigned int), NULL, GL_STATIC_DRAW);
-	glMakeBufferResidentNV(GL_ARRAY_BUFFER_ARB, GL_READ_WRITE);
-	glGetBufferParameterui64vNV(GL_ARRAY_BUFFER_ARB, GL_BUFFER_GPU_ADDRESS_NV, &abufferCounterGPUAddress);
+	// Set filter
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	//Texture creation
+	//Uses GL_R32F instead of GL_R32I that is not working in R257.15
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, wWidth, wHeight, 0, GL_RED, GL_FLOAT, 0);
+	glBindImageTextureEXT(1, abufferCounterID, 0, false, 0, GL_READ_WRITE, GL_R32UI);
 
 	checkError("Abuffer");
+
+	///ABuffer per-pixel counter///
+	if (!abufferCounterIncID)
+		glGenTextures(1, &abufferCounterIncID);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, abufferCounterIncID);
+
+	// Set filter
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	//Texture creation
+	//Uses GL_R32F instead of GL_R32I that is not working in R257.15
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, wWidth, wHeight, 0, GL_RED, GL_FLOAT, 0);
+	glBindImageTextureEXT(2, abufferCounterIncID, 0, false, 0, GL_READ_WRITE, GL_R32UI);
+
+	checkError("Abuffer");
+
+	///ABuffer storage///
+	if (!abufferZID)
+		glGenTextures(1, &abufferZID);
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D_ARRAY, abufferZID);
+
+	// Set filter
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	//Texture creation
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, windowSize.x, windowSize.y*ABUFFER_SIZE, 0,  GL_RGBA, GL_FLOAT, 0);
+	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA32F, wWidth, wHeight, ABUFFER_SIZE, 0, GL_RGBA, GL_FLOAT, 0);
+	glBindImageTextureEXT(3, abufferZID, 0, true, 0, GL_READ_WRITE, GL_RGBA32F);
+
+	checkError("AbufferZTex");
 }
 
 
@@ -288,10 +325,7 @@ static void LoadShaders() {
 	setShadersGlobalMacro("BACKGROUND_COLOR_R", pBackgroundColor.r);
 	setShadersGlobalMacro("BACKGROUND_COLOR_G", pBackgroundColor.g);
 	setShadersGlobalMacro("BACKGROUND_COLOR_B", pBackgroundColor.b);
-	setShadersGlobalMacro("ABUFFER_RESOLVE_USE_SORTING", pABufferUseSorting);
 	setShadersGlobalMacro("ABUFFER_RESOLVE_ALPHA_CORRECTION", pResolveAlphaCorrection);
-	setShadersGlobalMacro("ABUFFER_PAGE_SIZE", ABUFFER_PAGE_SIZE);
-//	setShadersGlobalMacro("ABUFFER", aBuffer);
 
 	LoadShaders_3D();
 	LoadShaders_2D();
@@ -1085,10 +1119,11 @@ void drawQuad(tdogl::Program *prog) {
 
 void clearABuffer(){
 	//Assign uniform parameters
+	glProgramUniform1iEXT(preAbuffProgram->object(), preAbuffProgram->uniform("abufferImg"), 0);
+	glProgramUniform1iEXT(preAbuffProgram->object(), preAbuffProgram->uniform("abufferCounterImg"), 1);
+	glProgramUniform1iEXT(preAbuffProgram->object(), preAbuffProgram->uniform("abufferCounterIncImg"), 2);
+	glProgramUniform1iEXT(preAbuffProgram->object(), preAbuffProgram->uniform("abufferZImg"), 2);
 
-	glProgramUniformui64NV(preAbuffProgram->object(), preAbuffProgram->uniform("d_abuffer"), abufferGPUAddress);
-	glProgramUniformui64NV(preAbuffProgram->object(), preAbuffProgram->uniform("d_abufferZ"), abufferZGPUAddress);
-	glProgramUniformui64NV(preAbuffProgram->object(), preAbuffProgram->uniform("d_abufferIdx"), abufferCounterGPUAddress);
 
 	//Render the full screen quad
 	drawQuad(preAbuffProgram);
@@ -1103,9 +1138,12 @@ void resolveABuffer(){
 	//Ensure that all global memory write are done before resolving
 	glMemoryBarrierEXT(GL_SHADER_GLOBAL_ACCESS_BARRIER_BIT_NV);
 
-	glProgramUniformui64NV(postAbuffProgram->object(), postAbuffProgram->uniform("d_abuffer"), abufferGPUAddress);
-	glProgramUniformui64NV(postAbuffProgram->object(), postAbuffProgram->uniform("d_abufferZ"), abufferZGPUAddress);
-	glProgramUniformui64NV(postAbuffProgram->object(), postAbuffProgram->uniform("d_abufferIdx"), abufferCounterGPUAddress);
+	glProgramUniform1iEXT(postAbuffProgram->object(), postAbuffProgram->uniform("abufferImg"), 0);
+	glProgramUniform1iEXT(postAbuffProgram->object(), postAbuffProgram->uniform("abufferCounterImg"), 1);
+	glProgramUniform1iEXT(postAbuffProgram->object(), postAbuffProgram->uniform("abufferCounterIncImg"), 2);
+	glProgramUniform1iEXT(postAbuffProgram->object(), postAbuffProgram->uniform("abufferZImg"), 3);
+	glProgramUniform1iEXT(postAbuffProgram->object(), postAbuffProgram->uniform("cleanframes"), cleanframes);
+
 	drawQuad(postAbuffProgram);
 }
 
@@ -1121,106 +1159,110 @@ static void aBufferRender(float resolutionMult){
 
 	glDepthMask(GL_FALSE);
 
-	// clear everything
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	if (dirty){
+		clearABuffer();
+		// clear everything
+		cleanframes = 0;
 
-	clearABuffer();
+		//stroke based rendering
+		// bind the program (the shaders)
+		gProgram->use();
+		gProgram->setUniform("camera", gCamera.matrix());
+		gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
+		gProgram->setUniform("aBuffer", true);
 
-	//stroke based rendering
-	// bind the program (the shaders)
-	gProgram->use();
-	gProgram->setUniform("camera", gCamera.matrix());
-	gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
-	gProgram->setUniform("aBuffer", true);
-
-	// bind the texture and set the "tex" uniform in the fragment shader
-
-	glProgramUniformui64NV(gProgram->object(), gProgram->uniform("d_abuffer"), abufferGPUAddress);
-	glProgramUniformui64NV(gProgram->object(), gProgram->uniform("d_abufferZ"), abufferZGPUAddress);
-	glProgramUniformui64NV(gProgram->object(), gProgram->uniform("d_abufferIdx"), abufferCounterGPUAddress);
+		// bind the texture and set the "tex" uniform in the fragment shader
 
 
-	for (int j = 0; j < gVAOs[cloud].size(); j++){
-		glBindVertexArray(gVAOs[cloud][j]);
-		
-		//loading textures
-		for (int i = 0; i < 10; i++){
-			glActiveTexture(GL_TEXTURE0 + i);
-			int idx = style > 15 ? 1 : 0;
-			if (brushtype[j] == 0)
-				glBindTexture(GL_TEXTURE_2D, vBtextures[2 * i + idx]->object());
-			if (brushtype[j] == 1)
-				glBindTexture(GL_TEXTURE_2D, hBtextures[2 * i + idx]->object());
-			if (brushtype[j] == 2)
-				glBindTexture(GL_TEXTURE_2D, rBtextures[2 * i + idx]->object());
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-			std::stringstream s;
-			s << "tex" << i;
-			gProgram->setUniform(s.str().c_str(), i);
+		glProgramUniform1iEXT(gProgram->object(), gProgram->uniform("abufferImg"), 0);
+		glProgramUniform1iEXT(gProgram->object(), gProgram->uniform("abufferCounterImg"), 1);
+		glProgramUniform1iEXT(gProgram->object(), gProgram->uniform("abufferZImg"), 3);
+
+
+		for (int j = 0; j < gVAOs[cloud].size(); j++){
+			glBindVertexArray(gVAOs[cloud][j]);
+
+			//loading textures
+			for (int i = 0; i < 10; i++){
+				glActiveTexture(GL_TEXTURE4 + i);
+				int idx = style > 15 ? 1 : 0;
+				if (brushtype[j] == 0)
+					glBindTexture(GL_TEXTURE_2D, vBtextures[2 * i + idx]->object());
+				if (brushtype[j] == 1)
+					glBindTexture(GL_TEXTURE_2D, hBtextures[2 * i + idx]->object());
+				if (brushtype[j] == 2)
+					glBindTexture(GL_TEXTURE_2D, rBtextures[2 * i + idx]->object());
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+				std::stringstream s;
+				s << "tex" << i;
+				gProgram->setUniform(s.str().c_str(), i + 4);
+			}
+
+
+			gProgram->setUniform("resolution", resolutions[j] * resolutionMult);
+			float a = 1.0;
+			float s = 1.0;
+			float ps = 1.0;
+			gProgram->setUniform("saturation", s);
+			gProgram->setUniform("alph", a);
+			gProgram->setUniform("scale", ps);
+			// draw the VAO
+			glDrawArrays(GL_POINTS, 0, numElements[j]);
+
+			checkError("first pass 1");
+			for (int i = 0; i < 10; i++){
+				glActiveTexture(GL_TEXTURE4 + i);
+				int idx = style > 15 ? 1 : 0;
+				if (brushtype[j] == 0)
+					glBindTexture(GL_TEXTURE_2D, vtextures[2 * i + idx]->object());
+				if (brushtype[j] == 1)
+					glBindTexture(GL_TEXTURE_2D, htextures[2 * i + idx]->object());
+				if (brushtype[j] == 2)
+					glBindTexture(GL_TEXTURE_2D, rtextures[2 * i + idx]->object());
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+				std::stringstream s;
+				s << "tex" << i;
+				gProgram->setUniform(s.str().c_str(), i + 4);
+			}
+			float res = resolutionMult * patchScale;
+
+			a = alph;
+			s = saturation;
+			ps = 1.0005;
+			gProgram->setUniform("saturation", s);
+			gProgram->setUniform("resolution", resolutions[j] * res);
+			gProgram->setUniform("alph", a);
+			gProgram->setUniform("scale", ps);
+			// draw the VAO
+			//glDrawArrays(GL_POINTS, 0, numElements[j]);
+
+			checkError("first pass 2");
+
 		}
 
-
-		gProgram->setUniform("resolution", resolutions[j] * resolutionMult);
-		float a = 1.0;
-		float s = 1.0;
-		float ps = 1.0; 
-		gProgram->setUniform("saturation", s);
-		gProgram->setUniform("alph", a);
-		gProgram->setUniform("scale", ps);
-		// draw the VAO
-		glDrawArrays(GL_POINTS, 0, numElements[j]);
-
-		checkError("first pass 1");
-		for (int i = 0; i < 10; i++){
-			glActiveTexture(GL_TEXTURE0 + i);
-			int idx = style > 15 ? 1 : 0;
-			if (brushtype[j] == 0)
-				glBindTexture(GL_TEXTURE_2D, vtextures[2 * i + idx]->object());
-			if (brushtype[j] == 1)
-				glBindTexture(GL_TEXTURE_2D, htextures[2 * i + idx]->object());
-			if (brushtype[j] == 2)
-				glBindTexture(GL_TEXTURE_2D, rtextures[2 * i + idx]->object());
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-			std::stringstream s;
-			s << "tex" << i;
-			gProgram->setUniform(s.str().c_str(), i);
-		}
-		float res = resolutionMult * patchScale;
-
-		a = alph;
-		s = saturation;
-		ps = 1.0005;
-		gProgram->setUniform("saturation", s);
-		gProgram->setUniform("resolution", resolutions[j] * res);
-		gProgram->setUniform("alph", a);
-		gProgram->setUniform("scale", ps);
-		// draw the VAO
-		//glDrawArrays(GL_POINTS, 0, numElements[j]);
-
-		checkError("first pass 2");
-
+		// unbind the VAO, the program and the texture
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		gProgram->stopUsing();
 	}
 
-	// unbind the VAO, the program and the texture
-	glBindVertexArray(0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	gProgram->stopUsing();
-
 	resolveABuffer();
-
-
+	cleanframes++;
+	dirty = false;
 }
 
 // draws a single frame
 static void Render() {
 	//twoDRender();
-	if (paint){
+	if (paint ){
 		aBufferRender(1+ epsilon);
+		
 		//threeDRender();
 	}
 	else{
@@ -1246,18 +1288,24 @@ void Update(float secondsElapsed) {
     const float moveSpeed = 0.5; //units per second
     if(glfwGetKey(gWindow, 'S')){
         gCamera.offsetPosition(secondsElapsed * moveSpeed * -gCamera.forward());
+		dirty = true;
     } else if(glfwGetKey(gWindow, 'W')){
-        gCamera.offsetPosition(secondsElapsed * moveSpeed * gCamera.forward());
+		gCamera.offsetPosition(secondsElapsed * moveSpeed * gCamera.forward());
+		dirty = true;
     }
     if(glfwGetKey(gWindow, 'A')){
-        gCamera.offsetPosition(secondsElapsed * moveSpeed * -gCamera.right());
+		gCamera.offsetPosition(secondsElapsed * moveSpeed * -gCamera.right());
+		dirty = true;
     } else if(glfwGetKey(gWindow, 'D')){
-        gCamera.offsetPosition(secondsElapsed * moveSpeed * gCamera.right());
+		gCamera.offsetPosition(secondsElapsed * moveSpeed * gCamera.right());
+		dirty = true;
     }
     if(glfwGetKey(gWindow, 'Z')){
-        gCamera.offsetPosition(secondsElapsed * moveSpeed * -glm::vec3(0,1,0));
+		gCamera.offsetPosition(secondsElapsed * moveSpeed * -glm::vec3(0, 1, 0));
+		dirty = true;
     } else if(glfwGetKey(gWindow, 'X')){
-        gCamera.offsetPosition(secondsElapsed * moveSpeed * glm::vec3(0,1,0));
+		gCamera.offsetPosition(secondsElapsed * moveSpeed * glm::vec3(0, 1, 0));
+		dirty = true;
 	}else if (glfwGetKey(gWindow, 'C')){
 		cloud++;
 		if (cloud == gVAOs.size()) cloud = 0;
@@ -1266,6 +1314,7 @@ void Update(float secondsElapsed) {
 		if (paintCount > 1){
 			paint = !paint;
 			paintCount = 0;
+			dirty = true;
 		}
 	}
 	else if (glfwGetKey(gWindow, 'F')){
@@ -1310,6 +1359,9 @@ void Update(float secondsElapsed) {
 		double deltaY = mouseY - lastMousePos.y;
 		double deltaX = mouseX - lastMousePos.x;
 		gCamera.offsetOrientation(mouseSensitivity * (float)deltaY, mouseSensitivity * (float)deltaX);
+		if (deltaY != 0 || deltaX != 0){
+			dirty = true;
+		}
 	}
 	lastMousePos.x = mouseX;
 	lastMousePos.y = mouseY;

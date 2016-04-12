@@ -9,20 +9,21 @@
 
 const vec4 backgroundColor=vec4(BACKGROUND_COLOR_R, BACKGROUND_COLOR_G, BACKGROUND_COLOR_B, 0.0f);
 
-//Blend fragments front-to-back
-vec4 resolveAlphaBlend(int abNumFrag);
 
 //Blend fragments front-to-back
-vec4 resolveAlphaBlend(int abNumFrag){
+vec4 resolveAlphaBlend(int abNumFrag,int abSortedFrags){
 			
 	vec4 finalColor=vec4(0.0f);
 
 	const float sigma = 30.0f;
 	float thickness=fragmentList[0].w/2.0f;
-
-	for(int i=0; i<abNumFrag; i++){
+	if(cleanframes < 5){
+			finalColor = fragmentList[0];
+			finalColor.a = 1;
+			return finalColor;
+	}
+	for(int i=0; i<abSortedFrags; i++){
 		vec4 frag=fragmentList[i];
-		
 		vec4 col=frag;
 			//uses constant alpha
 

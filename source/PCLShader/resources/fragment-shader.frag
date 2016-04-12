@@ -11,12 +11,10 @@
 #define SCREEN_WIDTH	512
 #define SCREEN_HEIGHT	512
 #define ABUFFER_RESOLVE_ALPHA_CORRECTION 0
-#define ABUFFER_RESOLVE_USE_SORTING 0
 #define BACKGROUND_COLOR_B 1.000000f
 #define BACKGROUND_COLOR_G 1.000000f
 #define BACKGROUND_COLOR_R 1.000000f
 #define ABUFFER_SIZE 16
-#define ABUFFER_PAGE_SIZE 4
 
 smooth in vec4 fragPos;
 in vec4 VertexColor;
@@ -39,9 +37,10 @@ uniform float alph;
 uniform float saturation;
 uniform bool aBuffer;
 
-uniform coherent vec4 *d_abuffer;
-uniform coherent vec4 *d_abufferZ;
-uniform coherent uint *d_abufferIdx;
+
+uniform layout(size1x32) uimage2D abufferCounterImg;
+uniform layout(size4x32) image2DArray abufferImg;
+uniform layout(size4x32) image2DArray abufferZImg;
 
 out vec4 finalColor;
 
@@ -61,7 +60,7 @@ vec4 sbrColor(){
 	else if(tex == 9) t= texture(tex9,uv);
 
 	vec3 normal;
-	if(t.a ==0){
+	if(t.a ==0 ){
 		discard;
 	}
 	t = t*VertexColor;
@@ -83,17 +82,14 @@ void main() {
 	if(aBuffer){
 		ivec2 coords=ivec2(gl_FragCoord.xy);
 		if(coords.x>=0 && coords.y>=0 && coords.x<SCREEN_WIDTH && coords.y<SCREEN_HEIGHT ){
-			
-			int abNumFrag=(int)d_abufferIdx[coords.x+coords.y*SCREEN_WIDTH];
-				if(abNumFrag < ABUFFER_SIZE-1){
-				int abidx=(int)atomicIncWrap(d_abufferIdx+coords.x+coords.y*SCREEN_WIDTH, ABUFFER_SIZE-1);
+
+			int abidx=(int)imageAtomicIncWrap(abufferCounterImg, coords, ABUFFER_SIZE );
 	
-				//Create fragment to be stored
+			//Create fragment to be stored
 				
-				vec4 col = sbrColor();
-				d_abuffer[coords.x+coords.y*SCREEN_WIDTH + (abidx*SCREEN_WIDTH*SCREEN_HEIGHT)]=col;
-				d_abufferZ[coords.x+coords.y*SCREEN_WIDTH + (abidx*SCREEN_WIDTH*SCREEN_HEIGHT)]=fragPos;
-			}
+			vec4 col = sbrColor();
+			imageStore(abufferImg, ivec3(coords, abidx), col);
+			imageStore(abufferZImg, ivec3(coords, abidx), fragPos);	
 		}
 		discard;
 	}

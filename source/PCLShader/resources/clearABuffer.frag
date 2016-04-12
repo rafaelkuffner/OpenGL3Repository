@@ -10,30 +10,33 @@
 #define SCREEN_WIDTH	512
 #define SCREEN_HEIGHT	512
 #define ABUFFER_RESOLVE_ALPHA_CORRECTION 0
-#define ABUFFER_RESOLVE_USE_SORTING 0
 #define BACKGROUND_COLOR_B 1.000000f
 #define BACKGROUND_COLOR_G 1.000000f
 #define BACKGROUND_COLOR_R 1.000000f
 #define ABUFFER_SIZE 16
-#define ABUFFER_PAGE_SIZE 4
 
 
-uniform vec4 *d_abuffer;
-uniform vec4 *d_abufferZ;
-uniform uint *d_abufferIdx;
+coherent uniform layout(size1x32) uimage2D abufferCounterImg;
+coherent uniform layout(size1x32) uimage2D abufferCounterIncImg;
+coherent uniform layout(size4x32) image2DArray abufferImg;
+coherent uniform layout(size4x32) image2DArray abufferZImg;
+
 
 void main(void) {
 
 	ivec2 coords=ivec2(gl_FragCoord.xy);
 	
-	//Be sure we are into the framebuffer
 	if(coords.x>=0 && coords.y>=0 && coords.x<SCREEN_WIDTH && coords.y<SCREEN_HEIGHT ){
-		d_abufferIdx[coords.x+coords.y*SCREEN_WIDTH]=0;
-		for(int i = 0; i < ABUFFER_SIZE; i++){
-			d_abufferZ[coords.x+coords.y*SCREEN_WIDTH+ (i*SCREEN_WIDTH*SCREEN_HEIGHT)]=vec4(0.0f);
-			d_abuffer[coords.x+coords.y*SCREEN_WIDTH+ (i*SCREEN_WIDTH*SCREEN_HEIGHT)]=vec4(0.0f);
-		}
+		//Reset counter
+		imageStore(abufferCounterImg, coords, ivec4(0));
+		imageStore(abufferCounterIncImg, coords, ivec4(0));
+		////Put black in first layer
+		//for(int i = 0; i < ABUFFER_SIZE;i++){
+		imageStore(abufferImg, ivec3(coords, 0), vec4(0.0f));
+		imageStore(abufferZImg, ivec3(coords, 0), vec4(0.0f));
+		////}
 	}
+
 
 	//Discard fragment so nothing is writen to the framebuffer
 	discard;

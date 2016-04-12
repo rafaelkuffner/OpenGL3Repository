@@ -5,9 +5,7 @@
 #ifndef ABUFFERSORT_HGLSL
 #define ABUFFERSORT_HGLSL
 
-//Local memory array (probably in L1)
-vec4 fragmentList[ABUFFER_SIZE];
-float zList[ABUFFER_SIZE];
+
 
 
 //Bubble sort used to sort fragments
@@ -32,6 +30,36 @@ void bubbleSort(int array_size) {
       }
     }
   }
+}
+
+//Bubble sort used to sort fragments
+int bubbleSortIncremental(int array_size,int minvalue,vec2 coords) {
+	bool sorted = true;
+    for (int j = (array_size-1); j >minvalue; j--) {
+      if (zList[j] < zList[j-1]) {
+		sorted = false;
+		vec4 higher = fragmentList[j-1];
+		vec4 lower = fragmentList[j];
+		fragmentList[j-1] = lower;
+		fragmentList[j] = higher;
+
+		imageStore(abufferImg, ivec3(coords, j-1), lower);
+		imageStore(abufferImg, ivec3(coords, j), higher);
+
+		float higherf = zList[j-1];
+		float lowerf = zList[j];
+
+		zList[j-1] = lowerf;
+		zList[j] = higherf;
+
+		imageStore(abufferZImg, ivec3(coords, j-1),  vec4(0.0f,0.0f,lowerf,0.0f));	
+		imageStore(abufferZImg, ivec3(coords, j), vec4(0.0f,0.0f,higherf,0.0f));	
+      }
+   }
+   if(sorted)
+		return array_size;
+	else
+		return minvalue +1;
 }
 
 //Swap function
