@@ -17,11 +17,7 @@ vec4 resolveAlphaBlend(int abNumFrag,int abSortedFrags){
 
 	const float sigma = 30.0f;
 	float thickness=fragmentList[0].w/2.0f;
-	if(cleanframes < 5){
-			finalColor = fragmentList[0];
-			finalColor.a = 1;
-			return finalColor;
-	}
+
 	for(int i=0; i<abSortedFrags; i++){
 		vec4 frag=fragmentList[i];
 		vec4 col=frag;

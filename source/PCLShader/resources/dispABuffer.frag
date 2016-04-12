@@ -21,7 +21,6 @@ uniform layout(size1x32) uimage2D abufferCounterIncImg;
 uniform layout(size4x32) image2DArray abufferImg;
 uniform layout(size4x32) image2DArray abufferZImg;
 
-uniform int cleanframes;
 
 //Local memory array (probably in L1)
 vec4 fragmentList[ABUFFER_SIZE];

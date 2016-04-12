@@ -60,8 +60,10 @@ vec4 sbrColor(){
 	else if(tex == 9) t= texture(tex9,uv);
 
 	vec3 normal;
-	if(t.a ==0 ){
+	if(t.a ==0 && !aBuffer){
 		discard;
+	}if(t.a ==0 && aBuffer){
+		return vec4(0.0f);
 	}
 	t = t*VertexColor;
 	if(aBuffer)

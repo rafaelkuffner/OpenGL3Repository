@@ -1142,7 +1142,6 @@ void resolveABuffer(){
 	glProgramUniform1iEXT(postAbuffProgram->object(), postAbuffProgram->uniform("abufferCounterImg"), 1);
 	glProgramUniform1iEXT(postAbuffProgram->object(), postAbuffProgram->uniform("abufferCounterIncImg"), 2);
 	glProgramUniform1iEXT(postAbuffProgram->object(), postAbuffProgram->uniform("abufferZImg"), 3);
-	glProgramUniform1iEXT(postAbuffProgram->object(), postAbuffProgram->uniform("cleanframes"), cleanframes);
 
 	drawQuad(postAbuffProgram);
 }
@@ -1163,10 +1162,9 @@ static void aBufferRender(float resolutionMult){
 	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	if (dirty){
+	if (cleanframes ==0){
 		clearABuffer();
 		// clear everything
-		cleanframes = 0;
 
 		//stroke based rendering
 		// bind the program (the shaders)
@@ -1253,20 +1251,29 @@ static void aBufferRender(float resolutionMult){
 	}
 
 	resolveABuffer();
+	if (cleanframes < 6){
+		finalPass(0);
+	}
 	cleanframes++;
-	dirty = false;
 }
 
 // draws a single frame
 static void Render() {
 	//twoDRender();
 	if (paint ){
-		aBufferRender(1+ epsilon);
 		
+		if (dirty){
+			threeDRenderNoBlur();
+			dirty = false;
+			cleanframes = 0;
+		}
+		else{
+			aBufferRender(1 + epsilon);
+		}
 		//threeDRender();
 	}
 	else{
-		threeDRenderNoBlur();
+		threeDRender();
 			//threeDRender();
 		//cloudRender();
 	}
