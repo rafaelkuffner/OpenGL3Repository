@@ -54,7 +54,7 @@
 using namespace pcl;
 // constants
 const glm::vec2 SCREEN_SIZE(800, 600);
-#define ABUFFER_SIZE			50
+#define ABUFFER_SIZE			60
 #define ABUFFER_PAGE_SIZE		4
 
 //Because current glew does not define it
@@ -647,9 +647,9 @@ static void LoadTexture() {
 		//impressionism
 		s1 << "vert3brush\\b" << i << ".png";
 		s1b << "vertbrushbig\\b" << i << ".png";
-		s2 << "horiz3brush\\b" << i << ".png";
+		s2 << "vert3brush\\b" << i << ".png";
 		s2b << "vertbrushbig\\b" << i << ".png";
-		s3 << "round3brush\\b" << i << ".png";
+		s3 << "vert3brush\\b" << i << ".png";
 		s3b << "vertbrushbig\\b" << i << ".png"; 
 
 		tdogl::Bitmap bmp = tdogl::Bitmap::bitmapFromFile(ResourcePath(s1.str()));
@@ -795,7 +795,7 @@ static void firstPass(float resolutionMult, int outbuf){
 			gProgram->setUniform("alph", a);
 			gProgram->setUniform("scale", ps);
 			// draw the VAO
-			//glDrawArrays(GL_POINTS, 0, numElements[j]);
+			glDrawArrays(GL_POINTS, 0, numElements[j]);
 
 			checkError("first pass 2");
 
@@ -1238,7 +1238,7 @@ static void aBufferRender(float resolutionMult){
 			gProgram->setUniform("alph", a);
 			gProgram->setUniform("scale", ps);
 			// draw the VAO
-			//glDrawArrays(GL_POINTS, 0, numElements[j]);
+			glDrawArrays(GL_POINTS, 0, numElements[j]);
 
 			checkError("first pass 2");
 
