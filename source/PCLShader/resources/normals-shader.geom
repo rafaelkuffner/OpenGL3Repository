@@ -5,6 +5,7 @@ uniform mat4 model;
 //uniform vec3 camPosition;
 uniform float resolution;
 uniform float scale;
+uniform int normalMethod;
 
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
@@ -20,7 +21,6 @@ out vec2 VertexUV;
 out vec4 VertexColor;
 smooth out vec4 fragPos;
 flat out int tex;
-
 
 float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
@@ -42,53 +42,89 @@ void main() {
 	vec4 c = vertex[0].color;
 	vec3 normal = vertex[0].normal.xyz;
 	
-	tex = (int(rand(vec2(normal.x,normal.y))*10000))%10;
-	
-	//-------- Spherical-------------//
-	 
-    //float norm = sqrt(pow(normal.x, 2) + pow(normal.y, 2) + pow(normal.z, 2));
-	//float teta = atan(normal.y /normal.x);
-    //float phi = acos(normal.z / norm);
-
-	////# r_vec, teta_vec, phi_vec #//
-    //normal = vec3(cos(teta) * sin(phi), sin(teta) * sin(phi), cos(phi));
-    //right =vec3(-sin(teta), cos(teta), 0);
-    //up = vec3(cos(teta) * sin(phi),sin(teta) *cos(phi), -sin(phi));
-
-	//---------Paralelo ao plano base---------//
-	//float x1 = sqrt(1/(1+(pow(nx,2)/pow(nz,2))));
-	//float x2 = -x1;
-	//float z1 = - nx*x1/nz;
-	//floatz2 = -z1;
-
-	//right = vec3(x1,0,z1);
-	//up = cross(right,normal);
-	  
-	//-------SquarePlate----------//
-	//vec3 v;
-	//if ((abs (normal.x) >= 0.0f && abs (normal.y) >= 0.0f) || (abs (normal.x) <= 0.0f && abs (normal.y) <= 0.0f)) {
-	//	v = vec3 (normal.x + 1,normal.y - 1, normal.z);
-	//} else {
-	//	v = vec3 (normal.x - 1,normal.y - 1, normal.z);
-	//}
-	////# t and b #//
-	//right =normalize(cross (v, normal));
-	//up = normalize(cross (normal, right));
-		
-
-	//---------Householder---------//
 	float nx = vertex[0].normal.x;
 	float ny = vertex[0].normal.y;
 	float nz = vertex[0].normal.z;
-	float n = sqrt(pow(nx,2) + pow(ny,2) + pow(nz,2));
-	float h1 = max( normal.x - n , nx + n );
-	float h2 = ny;
-	float h3 = nz;
-	float h = sqrt(pow(h1,2) + pow(h2,2) + pow(h3,2));
+	tex = (int(rand(vec2(normal.x,normal.y))*10000))%10;
+	
+	 switch(normalMethod){
+	 
+	//-------- Spherical-------------//
+	 case 1: 
+		float norm = sqrt(pow(normal.x, 2) + pow(normal.y, 2) + pow(normal.z, 2));
+		float teta = atan(normal.y /normal.x);
+		float phi = acos(normal.z / norm);
 
-	up =  vec3(-2*h1*h3/pow(h,2), -2*h2*h3/pow(h,2), 1 - 2*pow(h3,2)/pow(h,2));
-	right = vec3(-2*h1*h2/pow(h,2), 1 - 2*pow(h2,2)/pow(h,2), -2*h2*h3/pow(h,2));
+		//# r_vec, teta_vec, phi_vec #//
+		normal = vec3(cos(teta) * sin(phi), sin(teta) * sin(phi), cos(phi));
+		right =vec3(-sin(teta), cos(teta), 0);
+		up = vec3(cos(teta) * sin(phi),sin(teta) *cos(phi), -sin(phi));
+		break;
+	//---------Paralelo ao plano base---------//
+	case 2:
+		float x1 = sqrt(1/(1+(pow(nx,2)/pow(nz,2))));
+		float x2 = -x1;
+		float z1 = - nx*x1/nz;
 
+
+		right = vec3(x1,0,z1);
+		up = cross(right,normal);
+		break;
+
+	//-------SquarePlate----------//
+	case 3:
+		vec3 v;
+		if ((abs (normal.x) >= 0.0f && abs (normal.y) >= 0.0f) || (abs (normal.x) <= 0.0f && abs (normal.y) <= 0.0f)) {
+			v = vec3 (normal.x + 1,normal.y - 1, normal.z);
+		} else {
+			v = vec3 (normal.x - 1,normal.y - 1, normal.z);
+		}
+		//# t and b #//
+		right =normalize(cross (v, normal));
+		up = normalize(cross (normal, right));
+		break;
+	//------------Eberly-------------//
+	case 4:
+		vec3 t;
+		vec3 b;
+		if (abs (normal.x) >= abs (normal.y)) 
+		{
+			t = vec3 (- normal.z / sqrt (pow (normal.x, 2) + pow (normal.z, 2)), 
+					0.0f,
+						normal.x / sqrt (pow (normal.x, 2) + pow (normal.z, 2)));
+
+			b = vec3 ((normal.x * normal.y) / sqrt (pow (normal.x, 2) + pow (normal.z, 2)), 
+					- sqrt (pow (normal.x, 2) +pow (normal.z, 2)),
+					(normal.y * normal.z) / sqrt (pow (normal.x, 2) + pow (normal.z, 2)));
+		} else 
+		{
+			t = vec3 (0.0f, 
+					normal.z / sqrt (pow (normal.y, 2) + pow (normal.z, 2)),
+					- normal.y / sqrt (pow (normal.y, 2) + pow (normal.z, 2)));
+			
+			b = vec3 (- sqrt (pow (normal.y, 2) + pow (normal.z, 2)), 
+								(normal.x * normal.y) / sqrt (pow (normal.y, 2) + pow (normal.z, 2)),
+								(normal.x * normal.z) / sqrt (pow (normal.y, 2) + pow (normal.z, 2)));
+		}
+		////# t and b #//
+		right = normalize (t);
+		up = normalize (b);
+		break;
+	//---------Householder---------//
+	case 5:
+		float nx = vertex[0].normal.x;
+		float ny = vertex[0].normal.y;
+		float nz = vertex[0].normal.z;
+		float n = sqrt(pow(nx,2) + pow(ny,2) + pow(nz,2));
+		float h1 = max( normal.x - n , nx + n );
+		float h2 = ny;
+		float h3 = nz;
+		float h = sqrt(pow(h1,2) + pow(h2,2) + pow(h3,2));
+
+		up =  vec3(-2*h1*h3/pow(h,2), -2*h2*h3/pow(h,2), 1 - 2*pow(h3,2)/pow(h,2));
+		right = vec3(-2*h1*h2/pow(h,2), 1 - 2*pow(h2,2)/pow(h,2), -2*h2*h3/pow(h,2));
+		break;
+	}
 	
 	
 	  

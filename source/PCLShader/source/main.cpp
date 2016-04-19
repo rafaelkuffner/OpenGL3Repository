@@ -106,7 +106,7 @@ float patchScale = 0.7;
 std::string cloudName;
 int style = 0;
 using namespace std;
-
+int normalMethod = 5;
 //ABuffer textures (pABufferUseTextures)
 GLuint abufferID = 0;
 GLuint abufferZID = 0;
@@ -763,6 +763,7 @@ static void firstPass(float resolutionMult, int outbuf){
 			float a = 1.0;
 			float s = 1.0;
 			float ps = 1.0;
+			gProgram->setUniform("normalMethod", normalMethod);
 			gProgram->setUniform("saturation", s);
 			gProgram->setUniform("alph", a);
 			gProgram->setUniform("scale", ps);
@@ -795,7 +796,7 @@ static void firstPass(float resolutionMult, int outbuf){
 			gProgram->setUniform("alph", a);
 			gProgram->setUniform("scale", ps);
 			// draw the VAO
-			glDrawArrays(GL_POINTS, 0, numElements[j]);
+			//glDrawArrays(GL_POINTS, 0, numElements[j]);
 
 			checkError("first pass 2");
 
@@ -1206,6 +1207,7 @@ static void aBufferRender(float resolutionMult){
 			float a = 1.0;
 			float s = 1.0;
 			float ps = 1.0;
+			gProgram->setUniform("normalMethod",normalMethod);
 			gProgram->setUniform("saturation", s);
 			gProgram->setUniform("alph", a);
 			gProgram->setUniform("scale", ps);
@@ -1238,7 +1240,7 @@ static void aBufferRender(float resolutionMult){
 			gProgram->setUniform("alph", a);
 			gProgram->setUniform("scale", ps);
 			// draw the VAO
-			glDrawArrays(GL_POINTS, 0, numElements[j]);
+			//glDrawArrays(GL_POINTS, 0, numElements[j]);
 
 			checkError("first pass 2");
 
@@ -1326,37 +1328,67 @@ void Update(float secondsElapsed) {
 	}
 	else if (glfwGetKey(gWindow, 'F')){
 		alph += 0.01;
+		dirty = true;
 		if (alph > 1) alph = 1;
 	}
 	else if (glfwGetKey(gWindow, 'V')){
 		alph -= 0.01;
+		dirty = true;
 		if (alph < 0) alph = 0;
 	}
 	else if (glfwGetKey(gWindow, 'G')){
 		saturation += 0.01;
+		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'B')){
 		saturation -= 0.01;
+		dirty = true;
 		if (saturation < 0) saturation = 0;
 	}
 	else if (glfwGetKey(gWindow, 'H')){
 		epsilon += 0.01;
+		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'N')){
 		epsilon -= 0.01;
+		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'J')){
 		patchScale += 0.001;
+		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'M')){
 		patchScale -= 0.001;
+		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'K')){
 		style++;
 		if (style > 30){
 			style = 0;
+			dirty = true;
 		}
 	}
+	else if (glfwGetKey(gWindow, '1')){
+		normalMethod = 1;
+		dirty = true;
+	}
+	else if (glfwGetKey(gWindow, '2')){
+		normalMethod = 2;
+		dirty = true;
+	}
+	else if (glfwGetKey(gWindow, '3')){
+		normalMethod = 3;
+		dirty = true;
+	}
+	else if (glfwGetKey(gWindow, '4')){
+		normalMethod = 4;
+		dirty = true;
+	}
+	else if (glfwGetKey(gWindow, '5')){
+		normalMethod = 5;
+		dirty = true;
+	}
+
     //rotate camera based on mouse movement
     const float mouseSensitivity = 0.1f;
     double mouseX, mouseY;
