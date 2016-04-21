@@ -118,6 +118,7 @@
     <None Include="..\..\source\PCLShader\resources\clearABuffer.frag" />
     <None Include="..\..\source\PCLShader\resources\diff.frag" />
     <None Include="..\..\source\PCLShader\resources\dispABuffer.frag" />
+    <None Include="..\..\source\PCLShader\resources\frag-brush-shader.frag" />
     <None Include="..\..\source\PCLShader\resources\passThrough.vert" />
     <None Include="..\..\source\PCLShader\resources\splat-shader.geom" />
     <None Include="..\..\source\PCLShader\resources\normals-shader.geom" />

@@ -126,6 +126,9 @@
     <None Include="..\..\source\PCLShader\resources\splat-shader.geom">
       <Filter>resources\Aux Filters</Filter>
     </None>
+    <None Include="..\..\source\PCLShader\resources\frag-brush-shader.frag">
+      <Filter>resources\Main Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\..\source\PCLShader\resources\wooden-crate.jpg">

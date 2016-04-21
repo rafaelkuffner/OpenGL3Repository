@@ -70,7 +70,7 @@ vec4 sbrColor(){
 		t.a *= alph;
 	else
 		t.a = alph;
-	float  P=sqrt(t.r*t.r*0.299+t.g*t.g*0.587+t.b*t.b*0.114 ) ;
+	float  P=sqrt(t.r*t.r*0.299+t.g*t.g*0.587+t.b*t.b*0.114 );
 
 	t.r=P+((t.r)-P)*(saturation+0.3);
 	t.g=P+((t.g)-P)*(saturation+0.3);

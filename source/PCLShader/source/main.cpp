@@ -79,6 +79,7 @@ tdogl::Program* rttProgram = NULL;
 tdogl::Program* diffProgram = NULL;
 tdogl::Program* rttArtProgram = NULL;
 tdogl::Program* g2Program = NULL;
+tdogl::Program* brushStrokeProgram = NULL;
 
 tdogl::Camera gCamera;
 FrameBuffer fbo;
@@ -207,8 +208,8 @@ static void LoadShaders_2D(){
 static void LoadShaders_3D(){
 
 	preAbuffProgram = createProgram("passThrough.vert", "clearABuffer.frag", "");
-
-	gProgram = createProgram("vertex-shader.vert", "fragment-shader.frag", "finalColor","normals-shader.geom");
+	
+	gProgram = createProgram("vertex-shader.vert", "fragment-shader.frag", "finalColor", "normals-shader.geom");
 	
 	postAbuffProgram = createProgram("passThrough.vert", "dispABuffer.frag", "outFragColor");
 
@@ -217,6 +218,8 @@ static void LoadShaders_3D(){
 	blurProgram = createProgram("rtt.vert", "blur.frag", "FragmentColor");
 
 	g2Program = createProgram("simp.vert", "simp.frag", "outColor");
+
+	brushStrokeProgram = createProgram("vertex-shader.vert", "frag-brush-shader.frag", "finalColor", "normals-shader.geom");
 	
 }
 static void LoadABuffer(){
@@ -328,7 +331,8 @@ static void LoadShaders() {
 	setShadersGlobalMacro("ABUFFER_RESOLVE_ALPHA_CORRECTION", pResolveAlphaCorrection);
 
 	LoadShaders_3D();
-	LoadShaders_2D();
+	//LoadShaders_2D();
+
 	GLenum error = glGetError();
 	if (error != GL_NO_ERROR)
 		std::cerr << "OpenGL Error LoadShaders" << error << std::endl;
@@ -811,6 +815,70 @@ static void firstPass(float resolutionMult, int outbuf){
 
 }
 
+
+static void firstPass_genBrush(float resolutionMult, int outbuf){
+
+	fbo.bind();
+	{
+		GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 + outbuf };
+		glDrawBuffers(1, DrawBuffers);
+
+		// clear everything
+		glClearColor(1.0, 1.0, 1.0, 1); // black
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// bind the program (the shaders)
+		brushStrokeProgram->use();
+		// set the "camera" uniform
+		brushStrokeProgram->setUniform("camera", gCamera.matrix());
+		// set the "model" uniform in the vertex shader, based on the gDegreesRotated global
+		brushStrokeProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
+
+		brushStrokeProgram->setUniform("aBuffer", false);
+		// bind the texture and set the "tex" uniform in the fragment shader
+
+
+		for (int j = 0; j < gVAOs[cloud].size(); j++){
+			// bind the VAO
+			glBindVertexArray(gVAOs[cloud][j]);
+
+			brushStrokeProgram->setUniform("resolution", resolutions[j] * resolutionMult);
+			float a = 1.0;
+			float s = 1.0;
+			float ps = 1.0;
+			brushStrokeProgram->setUniform("normalMethod", normalMethod);
+			brushStrokeProgram->setUniform("saturation", s);
+			brushStrokeProgram->setUniform("alph", a);
+			brushStrokeProgram->setUniform("scale", ps);
+			// draw the VAO
+			glDrawArrays(GL_POINTS, 0, numElements[j]);
+
+			checkError("first pass 1");
+			
+			//float res = resolutionMult * patchScale;
+			//a = alph;
+			//s = saturation;
+			//ps = 1.0005;
+			//gProgram->setUniform("saturation", s);
+			//gProgram->setUniform("resolution", resolutions[j] * res);
+			//gProgram->setUniform("alph", a);
+			//gProgram->setUniform("scale", ps);
+			// draw the VAO
+			//glDrawArrays(GL_POINTS, 0, numElements[j]);
+
+			//checkError("first pass 2");
+
+		}
+
+		// unbind the VAO, the program and the texture
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		brushStrokeProgram->stopUsing();
+	}
+	fbo.unbind();
+
+}
+
 static void secondPass(int iterations){
 
 	fbo.bind();
@@ -1072,6 +1140,22 @@ static void threeDRenderNoBlur(){
 	//debugPass();
 }
 
+static void threeDRenderNoBlur_genBrush(){
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glEnable(GL_CULL_FACE);
+	////glEnable(GL_STENCIL_TEST);
+	glDepthMask(GL_TRUE);
+
+	firstPass_genBrush(1 + epsilon, 0);
+	checkError("first pass");
+	//pass 2: blur 
+	finalPass(0);
+	//debugPass();
+}
+
 static void cloudRender(){
 	glPointSize(3.0);
 	glLineWidth(3.0);
@@ -1259,24 +1343,101 @@ static void aBufferRender(float resolutionMult){
 	cleanframes++;
 }
 
+
+static void aBufferRender_genBrush(float resolutionMult){
+
+	glDisable(GL_CULL_FACE);
+	//Disable depth test
+	glDisable(GL_DEPTH_TEST);
+	//Disable stencil test
+	glDisable(GL_STENCIL_TEST);
+	//Disable blending
+	glDisable(GL_BLEND);
+
+	glDepthMask(GL_FALSE);
+
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	if (cleanframes == 0){
+		clearABuffer();
+		// clear everything
+
+		//stroke based rendering
+		// bind the program (the shaders)
+		brushStrokeProgram->use();
+		brushStrokeProgram->setUniform("camera", gCamera.matrix());
+		brushStrokeProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
+		brushStrokeProgram->setUniform("aBuffer", true);
+
+		// bind the texture and set the "tex" uniform in the fragment shader
+
+
+		glProgramUniform1iEXT(brushStrokeProgram->object(), brushStrokeProgram->uniform("abufferImg"), 0);
+		glProgramUniform1iEXT(brushStrokeProgram->object(), brushStrokeProgram->uniform("abufferCounterImg"), 1);
+		glProgramUniform1iEXT(brushStrokeProgram->object(), brushStrokeProgram->uniform("abufferZImg"), 3);
+
+
+		for (int j = 0; j < gVAOs[cloud].size(); j++){
+			glBindVertexArray(gVAOs[cloud][j]);
+
+
+			brushStrokeProgram->setUniform("resolution", resolutions[j] * resolutionMult);
+			float a = 1.0;
+			float s = 1.0;
+			float ps = 1.0;
+			brushStrokeProgram->setUniform("normalMethod", normalMethod);
+			brushStrokeProgram->setUniform("saturation", s);
+			brushStrokeProgram->setUniform("alph", a);
+			brushStrokeProgram->setUniform("scale", ps);
+			// draw the VAO
+			glDrawArrays(GL_POINTS, 0, numElements[j]);
+
+			checkError("first pass 1");
+			
+			//float res = resolutionMult * patchScale;
+			//a = alph;
+			//s = saturation;
+			//ps = 1.0005;
+			//gProgram->setUniform("saturation", s);
+			//gProgram->setUniform("resolution", resolutions[j] * res);
+			//gProgram->setUniform("alph", a);
+			//gProgram->setUniform("scale", ps);
+			// draw the VAO
+			//glDrawArrays(GL_POINTS, 0, numElements[j]);
+
+			//checkError("first pass 2");
+
+		}
+
+		// unbind the VAO, the program and the texture
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		brushStrokeProgram->stopUsing();
+	}
+
+	resolveABuffer();
+	if (cleanframes < 6){
+		finalPass(0);
+	}
+	cleanframes++;
+}
 // draws a single frame
 static void Render() {
-	//twoDRender();
 	if (paint ){
-		
 		if (dirty){
-			threeDRenderNoBlur();
+			threeDRenderNoBlur_genBrush();
 			dirty = false;
 			cleanframes = 0;
 		}
 		else{
-			aBufferRender(1 + epsilon);
+			aBufferRender_genBrush(1 + epsilon);
 		}
-		//threeDRender();
 	}
 	else{
-		threeDRender();
-			//threeDRender();
+		threeDRenderNoBlur_genBrush();
+		//threeDRender();
 		//cloudRender();
 	}
 
