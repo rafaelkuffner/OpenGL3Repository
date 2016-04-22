@@ -26,6 +26,8 @@ float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
 }
 
+out vec3 upperRowRandom;
+out vec3 lowerRowRandom;
 
 void main() {
  //  float dist = distance(camPosition,gl_in[0].gl_Position.xyz);
@@ -46,7 +48,10 @@ void main() {
 	float ny = vertex[0].normal.y;
 	float nz = vertex[0].normal.z;
 	tex = (int(rand(vec2(normal.x,normal.y))*10000))%10;
-	
+	upperRowRandom = vec3(rand(vec2(normal.x,normal.y)),rand(vec2(normal.x,normal.z)),rand(vec2(normal.z,normal.x)));
+	lowerRowRandom = vec3(rand(vec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.y)),rand(vec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.z)),rand(vec2(gl_in[0].gl_Position.z,gl_in[0].gl_Position.x)));
+
+
 	 switch(normalMethod){
 	 
 	//-------- Spherical-------------//

@@ -217,7 +217,7 @@ static void LoadShaders_3D(){
 
 	blurProgram = createProgram("rtt.vert", "blur.frag", "FragmentColor");
 
-	g2Program = createProgram("simp.vert", "simp.frag", "outColor");
+	//g2Program = createProgram("simp.vert", "simp.frag", "outColor","splat-shader.geom");
 
 	brushStrokeProgram = createProgram("vertex-shader.vert", "frag-brush-shader.frag", "finalColor", "normals-shader.geom");
 	
@@ -1470,10 +1470,10 @@ void Update(float secondsElapsed) {
 		gCamera.offsetPosition(secondsElapsed * moveSpeed * gCamera.right());
 		dirty = true;
     }
-    if(glfwGetKey(gWindow, 'Z')){
+    if(glfwGetKey(gWindow, 'Q')){
 		gCamera.offsetPosition(secondsElapsed * moveSpeed * -glm::vec3(0, 1, 0));
 		dirty = true;
-    } else if(glfwGetKey(gWindow, 'X')){
+    } else if(glfwGetKey(gWindow, 'E')){
 		gCamera.offsetPosition(secondsElapsed * moveSpeed * glm::vec3(0, 1, 0));
 		dirty = true;
 	}else if (glfwGetKey(gWindow, 'C')){

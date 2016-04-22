@@ -19,7 +19,8 @@
 smooth in vec4 fragPos;
 in vec4 VertexColor;
 in vec2 VertexUV;
-
+in vec3 upperRowRandom;
+in vec3 lowerRowRandom;
 
 uniform float alph;
 uniform float saturation;
@@ -43,36 +44,27 @@ vec4 sbrColor(){
 	//------Brush stroke generation------//
 
 	//ycenters and xcenters
-	float xc[9]= {0.25f,0.5f,0.75f,0.25f,0.5f,0.75f,0.25f,0.5f,0.75f};
-	float yc[9]= {0.25f,0.25f,0.25f,0.5f,0.5f,0.5f,0.75f,0.75f,0.75f};
-	float a = 0.5f;
-	float sigmax = 0.15f; float sigmay = 0.12f;
-	int gamma = 4;
+	float xc[9]= {0.3f,0.5f,0.7f,0.3f,0.5f,0.7f,0.3f,0.5f,0.7f};
+	float yc[9]= {0.3f,0.3f,0.3f,0.5f,0.5f,0.5f,0.7f,0.7f,0.7f};
+	float a = 7f;
+	float sigmax = 0.09; float sigmay = 0.06f;
+	int gamma =3;
 
-	float alpha =  gaussian(uv.x, xc[0],uv.y,yc[0],a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[1],uv.y,yc[1],a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[2],uv.y,yc[2],a,sigmax,sigmay,gamma) +
+	float alpha =  gaussian(uv.x, xc[0],uv.y,yc[0]+(lowerRowRandom.x)*0.11,a,sigmax,sigmay,gamma) +
+				   gaussian(uv.x, xc[1],uv.y,yc[1]+(lowerRowRandom.y)*0.11,a,sigmax,sigmay,gamma) +
+				   gaussian(uv.x, xc[2],uv.y,yc[2]+(lowerRowRandom.z)*0.11,a,sigmax,sigmay,gamma) +
 				   gaussian(uv.x, xc[3],uv.y,yc[3],a,sigmax,sigmay,gamma) +
 				   gaussian(uv.x, xc[4],uv.y,yc[4],a,sigmax,sigmay,gamma) +
 				   gaussian(uv.x, xc[5],uv.y,yc[5],a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[6],uv.y,yc[6],a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[7],uv.y,yc[7],a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[8],uv.y,yc[8],a,sigmax,sigmay,gamma);
+				   gaussian(uv.x, xc[6],uv.y,yc[6]-(upperRowRandom.x)*0.11,a,sigmax,sigmay,gamma) +
+				   gaussian(uv.x, xc[7],uv.y,yc[7]-(upperRowRandom.y)*0.11,a,sigmax,sigmay,gamma) +
+				   gaussian(uv.x, xc[8],uv.y,yc[8]-(upperRowRandom.z)*0.11,a,sigmax,sigmay,gamma);
 
 
 	//----------------------------------//
 
-		float maxa =  gaussian(0.5, xc[0],0.5,yc[0],a,sigmax,sigmay,gamma) +
-				   gaussian(0.5, xc[1],0.5,yc[1],a,sigmax,sigmay,gamma) +
-				   gaussian(0.5, xc[2],0.5,yc[2],a,sigmax,sigmay,gamma) +
-				   gaussian(0.5, xc[3],0.5,yc[3],a,sigmax,sigmay,gamma) +
-				   gaussian(0.5, xc[4],0.5,yc[4],a,sigmax,sigmay,gamma) +
-				   gaussian(0.5, xc[5],0.5,yc[5],a,sigmax,sigmay,gamma) +
-				   gaussian(0.5, xc[6],0.5,yc[6],a,sigmax,sigmay,gamma) +
-				   gaussian(0.5, xc[7],0.5,yc[7],a,sigmax,sigmay,gamma) +
-				   gaussian(0.5, xc[8],0.5,yc[8],a,sigmax,sigmay,gamma);
-		float mina = 0.1;
-	alpha = (alpha-mina)/(maxa-mina);				
+	alpha = alpha>1? 1:alpha;
+	alpha = alpha < 0.01? 0:alpha;
 	vec4 t = vec4(1.0f,1.0f,1.0f,alpha);
 	vec3 normal;
 	if(t.a ==0 && !aBuffer){
