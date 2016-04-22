@@ -19,8 +19,10 @@
 smooth in vec4 fragPos;
 in vec4 VertexColor;
 in vec2 VertexUV;
-in vec3 upperRowRandom;
-in vec3 lowerRowRandom;
+
+in float theta1;
+in float theta2;
+in float theta3;
 
 uniform float alph;
 uniform float saturation;
@@ -34,8 +36,16 @@ uniform layout(size4x32) image2DArray abufferZImg;
 out vec4 finalColor;
 
 
-float gaussian(float x, float x0, float y,float y0, float a, float sigmax, float sigmay, int gamma){
+float gaussian(float x, float x0, float y,float y0, float a, float sigmax, float sigmay, float gamma){
 	return a*exp(-0.5 *( pow(pow(( x -x0)/sigmax,2),gamma/2)+pow(pow(( y -y0)/sigmay,2),gamma/2)));
+}
+
+float gaussianTheta(float x, float x0, float y,float y0, float a, float sigmax, float sigmay, float gamma,float theta){
+	float a1 = pow(cos(theta),2)/(2*pow(sigmax,2)) + pow(sin(theta),2)/(2*pow(sigmay,2));
+	float b1 = pow(sin(2*theta),2)/(4*pow(sigmax,2)) + pow(sin(2*theta),2)/(4*pow(sigmay,2));
+	float c1 = pow(sin(theta),2)/(2*pow(sigmax,2)) + pow(cos(theta),2)/(2*pow(sigmay,2));
+
+	return  a * exp(- (a1*pow(x-x0,2) - (2*b1*(x-x0)*(y-y0)) + c1*pow(y-y0,2))) ;
 }
 
 vec4 sbrColor(){
@@ -44,26 +54,30 @@ vec4 sbrColor(){
 	//------Brush stroke generation------//
 
 	//ycenters and xcenters
-	float xc[9]= {0.3f,0.5f,0.7f,0.3f,0.5f,0.7f,0.3f,0.5f,0.7f};
-	float yc[9]= {0.3f,0.3f,0.3f,0.5f,0.5f,0.5f,0.7f,0.7f,0.7f};
-	float a = 7f;
+	float xc[9]= {0.25f,0.5f,0.75f,0.25f,0.5f,0.75f,0.25f,0.5f,0.75f};
+	float yc[9]= {0.25f,0.25f,0.25f,0.5f,0.5f,0.5f,0.75f,0.75f,0.75f};
+	float a =4.0f;
 	float sigmax = 0.09; float sigmay = 0.06f;
-	int gamma =3;
+	float gamma =3;
+	float dev = 0.09;
+	float alpha = 0;
 
-	float alpha =  gaussian(uv.x, xc[0],uv.y,yc[0]+(lowerRowRandom.x)*0.11,a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[1],uv.y,yc[1]+(lowerRowRandom.y)*0.11,a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[2],uv.y,yc[2]+(lowerRowRandom.z)*0.11,a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[3],uv.y,yc[3],a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[4],uv.y,yc[4],a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[5],uv.y,yc[5],a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[6],uv.y,yc[6]-(upperRowRandom.x)*0.11,a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[7],uv.y,yc[7]-(upperRowRandom.y)*0.11,a,sigmax,sigmay,gamma) +
-				   gaussian(uv.x, xc[8],uv.y,yc[8]-(upperRowRandom.z)*0.11,a,sigmax,sigmay,gamma);
+	float a1 =gaussianTheta(uv.x, xc[0],uv.y,yc[0]+dev,a,sigmax,sigmay,gamma,theta1);
+	float a2 =gaussianTheta(uv.x, xc[1],uv.y,yc[1]+dev,a,sigmax,sigmay,gamma,theta2); 
+	float a3 =gaussianTheta(uv.x, xc[2],uv.y,yc[2]+dev,a,sigmax,sigmay,gamma,theta3); 
+	float a4 =gaussianTheta(uv.x, xc[3],uv.y,yc[3],a,sigmax,sigmay,gamma,theta1);
+	float a5 =gaussianTheta(uv.x, xc[4],uv.y,yc[4],a,sigmax,sigmay,gamma,theta2);
+	float a6 =gaussianTheta(uv.x, xc[5],uv.y,yc[5],a,sigmax,sigmay,gamma,theta3);
+	float a7 =gaussianTheta(uv.x, xc[6],uv.y,yc[6]-dev,a,sigmax,sigmay,gamma,theta1);
+	float a8 =gaussianTheta(uv.x, xc[7],uv.y,yc[7]-dev,a,sigmax,sigmay,gamma,theta2);
+	float a9 =gaussianTheta(uv.x, xc[8],uv.y,yc[8]-dev,a,sigmax,sigmay,gamma,theta3);
 
-
+	alpha = max(max(max(max(max(max(max(max(a1,a2),a3),a4),a5),a6),a7),a8),a9);
+	//alpha = gaussianTheta(uv.x, xc[4],uv.y,yc[4],a,sigmax,sigmay,gamma,1.5707f);
 	//----------------------------------//
 
 	alpha = alpha>1? 1:alpha;
+	alpha = alpha < 1? alpha*1:alpha;
 	alpha = alpha < 0.01? 0:alpha;
 	vec4 t = vec4(1.0f,1.0f,1.0f,alpha);
 	vec3 normal;

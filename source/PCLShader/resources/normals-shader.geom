@@ -1,5 +1,9 @@
 #version 450
 
+#define PI3 1.04719755 
+#define PI6 0.523598776
+#define PI12 0.261799388
+
 uniform mat4 camera;
 uniform mat4 model;
 //uniform vec3 camPosition;
@@ -26,8 +30,9 @@ float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
 }
 
-out vec3 upperRowRandom;
-out vec3 lowerRowRandom;
+out float theta1;
+out float theta2;
+out float theta3;
 
 void main() {
  //  float dist = distance(camPosition,gl_in[0].gl_Position.xyz);
@@ -48,10 +53,16 @@ void main() {
 	float ny = vertex[0].normal.y;
 	float nz = vertex[0].normal.z;
 	tex = (int(rand(vec2(normal.x,normal.y))*10000))%10;
-	upperRowRandom = vec3(rand(vec2(normal.x,normal.y)),rand(vec2(normal.x,normal.z)),rand(vec2(normal.z,normal.x)));
-	lowerRowRandom = vec3(rand(vec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.y)),rand(vec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.z)),rand(vec2(gl_in[0].gl_Position.z,gl_in[0].gl_Position.x)));
 
-
+	theta1 = mod(rand(vec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.x))*1000,PI3)-PI6;
+	theta2 = mod(rand(vec2(gl_in[0].gl_Position.y,gl_in[0].gl_Position.y))*1000,PI3)-PI6;
+	if(abs(theta2-theta1)> PI6){
+		theta2 = theta1 < 0? theta2 = theta1+PI6:theta1-PI6;
+	}
+	theta3 = mod(rand(vec2(gl_in[0].gl_Position.z,gl_in[0].gl_Position.z))*1000,PI3)-PI6;
+	if(abs(theta3-theta2)> PI6){
+		theta3 = theta2 < 0? theta3 = theta2+PI6:theta2-PI6;
+	} 
 	 switch(normalMethod){
 	 
 	//-------- Spherical-------------//
