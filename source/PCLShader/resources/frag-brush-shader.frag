@@ -41,11 +41,16 @@ float gaussian(float x, float x0, float y,float y0, float a, float sigmax, float
 }
 
 float gaussianTheta(float x, float x0, float y,float y0, float a, float sigmax, float sigmay, float gamma,float theta){
-	float a1 = pow(cos(theta),2)/(2*pow(sigmax,2)) + pow(sin(theta),2)/(2*pow(sigmay,2));
-	float b1 = pow(sin(2*theta),2)/(4*pow(sigmax,2)) + pow(sin(2*theta),2)/(4*pow(sigmay,2));
-	float c1 = pow(sin(theta),2)/(2*pow(sigmax,2)) + pow(cos(theta),2)/(2*pow(sigmay,2));
+	//float a1 = pow(cos(theta),2)/(2*pow(sigmax,2)) + pow(sin(theta),2)/(2*pow(sigmay,2));
+	//float b1 = pow(sin(2*theta),2)/(4*pow(sigmax,2)) + pow(sin(2*theta),2)/(4*pow(sigmay,2));
+	//float c1 = pow(sin(theta),2)/(2*pow(sigmax,2)) + pow(cos(theta),2)/(2*pow(sigmay,2));
 
-	return  a * exp(- (a1*pow(x-x0,2) - (2*b1*(x-x0)*(y-y0)) + c1*pow(y-y0,2))) ;
+	//return  a * exp(- (a1*pow(x-x0,2) - (2*b1*(x-x0)*(y-y0)) + c1*pow(y-y0,2))) ;
+
+	float x2 = cos(theta)*(x-x0)-sin(theta)*(y-y0)+x0;
+	float y2 = sin(theta)*(x-x0)+cos(theta)*(y-y0)+y0;
+	float z2 = a*exp(-0.5*( pow(pow((x2-x0)/sigmax,2),gamma/2)))*exp(-0.5*( pow(pow((y2-y0)/sigmay,2),gamma/2)));
+	return z2;
 }
 
 vec4 sbrColor(){
@@ -56,24 +61,25 @@ vec4 sbrColor(){
 	//ycenters and xcenters
 	float xc[9]= {0.25f,0.5f,0.75f,0.25f,0.5f,0.75f,0.25f,0.5f,0.75f};
 	float yc[9]= {0.25f,0.25f,0.25f,0.5f,0.5f,0.5f,0.75f,0.75f,0.75f};
-	float a =4.0f;
-	float sigmax = 0.09; float sigmay = 0.06f;
-	float gamma =3;
-	float dev = 0.09;
+	float a =1.0f;
+	float sigmax = 0.15f; float sigmay = 0.12f;
+	float gamma =4;
+	float dev = 0.12;
 	float alpha = 0;
 
-	float a1 =gaussianTheta(uv.x, xc[0],uv.y,yc[0]+dev,a,sigmax,sigmay,gamma,theta1);
-	float a2 =gaussianTheta(uv.x, xc[1],uv.y,yc[1]+dev,a,sigmax,sigmay,gamma,theta2); 
-	float a3 =gaussianTheta(uv.x, xc[2],uv.y,yc[2]+dev,a,sigmax,sigmay,gamma,theta3); 
-	float a4 =gaussianTheta(uv.x, xc[3],uv.y,yc[3],a,sigmax,sigmay,gamma,theta1);
-	float a5 =gaussianTheta(uv.x, xc[4],uv.y,yc[4],a,sigmax,sigmay,gamma,theta2);
-	float a6 =gaussianTheta(uv.x, xc[5],uv.y,yc[5],a,sigmax,sigmay,gamma,theta3);
-	float a7 =gaussianTheta(uv.x, xc[6],uv.y,yc[6]-dev,a,sigmax,sigmay,gamma,theta1);
-	float a8 =gaussianTheta(uv.x, xc[7],uv.y,yc[7]-dev,a,sigmax,sigmay,gamma,theta2);
-	float a9 =gaussianTheta(uv.x, xc[8],uv.y,yc[8]-dev,a,sigmax,sigmay,gamma,theta3);
+	float a1 =gaussianTheta(uv.x, xc[0],uv.y,yc[0]+dev-theta1/6,a,sigmax,sigmay,gamma,theta1);
+	float a2 =gaussianTheta(uv.x, xc[1],uv.y,yc[1]+dev-theta2/6,a*0.9,sigmax,sigmay,gamma,theta2); 
+	float a3 =gaussianTheta(uv.x, xc[2],uv.y,yc[2]+dev-theta3/6,a*0.8,sigmax,sigmay,gamma,theta3); 
+	float a4 =gaussianTheta(uv.x, xc[3],uv.y,yc[3]-theta1/6,a,sigmax,sigmay,gamma,theta1);
+	float a5 =gaussianTheta(uv.x, xc[4],uv.y,yc[4]-theta2/6,a*0.9,sigmax,sigmay,gamma,theta2);
+	float a6 =gaussianTheta(uv.x, xc[5],uv.y,yc[5]-theta3/6,a*0.8,sigmax,sigmay,gamma,theta3);
+	float a7 =gaussianTheta(uv.x, xc[6],uv.y,yc[6]-dev-theta1/6,a,sigmax,sigmay,gamma,theta1);
+	float a8 =gaussianTheta(uv.x, xc[7],uv.y,yc[7]-dev-theta2/6,a*0.9,sigmax,sigmay,gamma,theta2);
+	float a9 =gaussianTheta(uv.x, xc[8],uv.y,yc[8]-dev-theta3/6,a*0.8,sigmax,sigmay,gamma,theta3);
 
-	alpha = max(max(max(max(max(max(max(max(a1,a2),a3),a4),a5),a6),a7),a8),a9);
-	//alpha = gaussianTheta(uv.x, xc[4],uv.y,yc[4],a,sigmax,sigmay,gamma,1.5707f);
+	//alpha = max(max(max(max(max(max(max(max(a1,a2),a3),a4),a5),a6),a7),a8),a9);
+	alpha= a1+a2+a3+a4+a5+a6+a7+a8+a9;
+//	alpha = gaussianTheta(uv.x, xc[4],uv.y,yc[4],a,sigmax,sigmay,gamma,0.7853981634);
 	//----------------------------------//
 
 	alpha = alpha>1? 1:alpha;
