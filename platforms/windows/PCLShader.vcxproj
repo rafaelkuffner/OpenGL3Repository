@@ -54,13 +54,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>D:\PCL\PCL 1.6.0\3rdParty\VTK\include\vtk-5.8;D:\PCL\PCL 1.6.0\3rdParty\FLANN\include;D:\PCL\PCL 1.8.0\include\pcl-1.8;D:\Software\eigen;D:\PCL\PCL 1.6.0\3rdParty\Boost\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\PCL\PCL 1.6.0\3rdParty\VTK\include\vtk-5.8;C:\PCL\PCL 1.6.0\3rdParty\FLANN\include;C:\PCL\PCL 1.8.0\include\pcl-1.8;C:\PCL\PCL 1.6.0\3rdParty\eigen;C:\PCL\PCL 1.6.0\3rdParty\Boost\include</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\PCL\PCL 1.6.0\3rdParty\Boost\lib;D:\PCL\PCL 1.8.0\lib;D:\PCL\PCL 1.6.0\3rdParty\VTK\lib\vtk-5.8</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\PCL\PCL 1.6.0\3rdParty\Boost\lib;C:\PCL\PCL 1.8.0\lib;C:\PCL\PCL 1.6.0\3rdParty\VTK\lib\vtk-5.8</AdditionalLibraryDirectories>
       <AdditionalDependencies>pcl_io_debug.lib;pcl_io_ply_debug.lib;pcl_common_debug.lib;pcl_search_debug.lib;pcl_features_debug.lib;pcl_kdtree_debug.lib;pcl_filters_debug.lib;pcl_segmentation_debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

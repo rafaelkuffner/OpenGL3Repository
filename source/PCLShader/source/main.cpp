@@ -95,7 +95,7 @@ std::vector<float> resolutions;
 unsigned int rtt_vbo, rtt_ibo, rtt_vao;
 int wWidth, wHeight;
 int gridSizeBig, gridSizeSmall;
-bool paint = false;
+bool paint = true;
 int cloud = 0;
 std::vector<glm::vec4> defColors;
 glm::vec4 pBackgroundColor(1, 1, 1, 1);
@@ -122,6 +122,14 @@ std::vector<tdogl::ShaderMacroStruct>	shadersMacroList;
 
 bool dirty = false;
 int cleanframes = 0;
+
+bool debug = false;
+
+// Brush Stroke Gaussians
+float a = 1.0f;
+float sigmax = 0.15f; float sigmay = 0.12f;
+float gamma = 4;
+float dev = 0.12;
 
 void resetShadersGlobalMacros(){
 	shadersMacroList.clear();
@@ -1364,12 +1372,18 @@ static void aBufferRender_genBrush(float resolutionMult){
 		clearABuffer();
 		// clear everything
 
-		//stroke based rendering
 		// bind the program (the shaders)
 		brushStrokeProgram->use();
 		brushStrokeProgram->setUniform("camera", gCamera.matrix());
 		brushStrokeProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
 		brushStrokeProgram->setUniform("aBuffer", true);
+		
+		//stroke based rendering parameters for frag-brush-shaders
+		brushStrokeProgram->setUniform("dev", dev);
+		brushStrokeProgram->setUniform("gamma", gamma);
+		brushStrokeProgram->setUniform("sigmax", sigmax);
+		brushStrokeProgram->setUniform("sigmay", sigmay);
+		brushStrokeProgram->setUniform("a", a);
 
 		// bind the texture and set the "tex" uniform in the fragment shader
 
@@ -1433,6 +1447,8 @@ static void Render() {
 		}
 		else{
 			aBufferRender_genBrush(1 + epsilon);
+			if (debug)
+				cout << "path size = " << 1 + epsilon << endl;
 		}
 	}
 	else{
@@ -1488,23 +1504,27 @@ void Update(float secondsElapsed) {
 		}
 	}
 	else if (glfwGetKey(gWindow, 'F')){
-		alph += 0.01;
+		//alph += 0.01;
+		dev += 0.01;
 		dirty = true;
-		if (alph > 1) alph = 1;
+		//if (alph > 1) alph = 1;
 	}
 	else if (glfwGetKey(gWindow, 'V')){
-		alph -= 0.01;
+		//alph -= 0.01;
+		dev -= 0.01;
 		dirty = true;
-		if (alph < 0) alph = 0;
+		//if (alph < 0) alph = 0;
 	}
 	else if (glfwGetKey(gWindow, 'G')){
-		saturation += 0.01;
+		//saturation += 0.01;
+		gamma += 0.1;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'B')){
-		saturation -= 0.01;
+		//saturation -= 0.01;
+		gamma -= 0.1;
 		dirty = true;
-		if (saturation < 0) saturation = 0;
+		//if (saturation < 0) saturation = 0;
 	}
 	else if (glfwGetKey(gWindow, 'H')){
 		epsilon += 0.01;
@@ -1515,20 +1535,37 @@ void Update(float secondsElapsed) {
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'J')){
-		patchScale += 0.001;
+		//patchScale += 0.001;
+		sigmax += 0.001;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'M')){
-		patchScale -= 0.001;
+		//patchScale -= 0.001;
+		sigmax -= 0.001;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'K')){
-		style++;
-		if (style > 30){
-			style = 0;
-			dirty = true;
-		}
+		sigmay += 0.001;
+		dirty = true;
+		//style++;
+		//if (style > 30){
+			//style = 0;
+		//	dirty = true;
+	//	}
 	}
+	else if (glfwGetKey(gWindow, 'L')){
+		sigmay -= 0.001;
+		dirty = true;
+	}
+	else if (glfwGetKey(gWindow, 'I')){
+		a += 0.01;
+		dirty = true;
+	}
+	else if (glfwGetKey(gWindow, 'O')){
+		a -= 0.01;
+		dirty = true;
+	}
+
 	else if (glfwGetKey(gWindow, '1')){
 		normalMethod = 1;
 		dirty = true;
@@ -1549,6 +1586,18 @@ void Update(float secondsElapsed) {
 		normalMethod = 5;
 		dirty = true;
 	}
+	else if (glfwGetKey(gWindow, '6')){
+		if (debug)
+			debug = false;
+		else
+			debug = true;
+		dirty = true;
+	}
+
+
+
+	if (debug)
+		cout << " a = " << a << "| dev = " << dev << "| gamma = " << gamma << "| sigmax = " << sigmax << "| sigmay = " << sigmay << endl;
 
     //rotate camera based on mouse movement
     const float mouseSensitivity = 0.1f;
