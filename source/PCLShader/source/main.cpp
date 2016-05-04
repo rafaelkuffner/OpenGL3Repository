@@ -124,11 +124,12 @@ bool dirty = false;
 int cleanframes = 0;
 
 bool debug = false;
+bool dualLayer = false;
 
 // Brush Stroke Gaussians
-float a = 1.0f;
+float a = 1.5f;
 float sigmax = 0.15f; float sigmay = 0.12f;
-float gamma = 4;
+float gamma = 3.5;
 float dev = 0.12;
 
 void resetShadersGlobalMacros(){
@@ -225,7 +226,7 @@ static void LoadShaders_3D(){
 
 	blurProgram = createProgram("rtt.vert", "blur.frag", "FragmentColor");
 
-	//g2Program = createProgram("simp.vert", "simp.frag", "outColor","splat-shader.geom");
+	g2Program = createProgram("simp.vert", "simp.frag", "outColor");
 
 	brushStrokeProgram = createProgram("vertex-shader.vert", "frag-brush-shader.frag", "finalColor", "normals-shader.geom");
 	
@@ -387,16 +388,16 @@ static std::vector<PointCloud<PointXYZRGB>::Ptr> segmentPointCloud(PointCloud<Po
 	 pcl::RegionGrowingRGB<pcl::PointXYZRGB> reg;
 	 reg.setInputCloud(cloud);
 
-	 reg.setSearchMethod(tree);
-	 reg.setDistanceThreshold(100);
-	 reg.setPointColorThreshold(2.7);
-	 reg.setRegionColorThreshold(7);
-	 reg.setMinClusterSize(200);
 	 //reg.setSearchMethod(tree);
-	 //reg.setDistanceThreshold(1000);
-	 //reg.setPointColorThreshold(5.7);
+	 //reg.setDistanceThreshold(100);
+	 //reg.setPointColorThreshold(2.7);
 	 //reg.setRegionColorThreshold(7);
-	 //reg.setMinClusterSize(500);
+	 //reg.setMinClusterSize(200);
+	 reg.setSearchMethod(tree);
+	 reg.setDistanceThreshold(1000);
+	 reg.setPointColorThreshold(5.7);
+	 reg.setRegionColorThreshold(7);
+	 reg.setMinClusterSize(500);
 
 	 std::vector <pcl::PointIndices> clusters;
 	 reg.extract(clusters);
@@ -467,7 +468,7 @@ void readKinectCloudDisk(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::stri
 
 
 
-static void CloudPreprocess(std::vector<PointCloud<PointXYZRGB>::Ptr> &cloud_clusters,string cname){
+static float CloudPreprocess(std::vector<PointCloud<PointXYZRGB>::Ptr> &cloud_clusters,string cname){
 
 	PointCloud<PointXYZRGB>::Ptr cloud(new PointCloud<PointXYZRGB>);
 	loadPly(cloud,cname );
@@ -481,7 +482,10 @@ static void CloudPreprocess(std::vector<PointCloud<PointXYZRGB>::Ptr> &cloud_clu
 	pcl::transformPointCloud(*cloud, *cloud, transform);
 
 	cloud_clusters= segmentPointCloud(cloud);
-
+	PointXYZRGB min, max;
+	pcl::getMinMax3D(*cloud, min, max);
+	float size = sqrt(pow(max.x - min.x, 2) + pow(max.z - min.z, 2) + pow(max.z - min.z, 2));
+	return size;
 }
 
 
@@ -489,7 +493,7 @@ static void CloudPreprocess(std::vector<PointCloud<PointXYZRGB>::Ptr> &cloud_clu
 static void LoadCloud(string cname) {
 
 	std::vector<PointCloud<PointXYZRGB>::Ptr> cloud_clusters;
-	CloudPreprocess(cloud_clusters,cname);
+	float totalSize = CloudPreprocess(cloud_clusters,cname);
 	std::vector<GLuint> arrayobjs;
 	int max = 0;
 	for (int i = 0; i < cloud_clusters.size(); i++){
@@ -524,6 +528,7 @@ static void LoadCloud(string cname) {
 
 		PointXYZRGBNormal min, max;
 		pcl::getMinMax3D(*cloud_with_normals, min, max);
+		float sizecluster = sqrt(pow(max.x - min.x, 2) + pow(max.z - min.z, 2) + pow(max.z - min.z, 2));
 
 		Eigen::Vector4f centroid;
 		pcl::compute3DCentroid(*cloud_with_normals, centroid);
@@ -536,13 +541,18 @@ static void LoadCloud(string cname) {
 		float sizez = fabs(max.z - min.z);
 		int brush;
 		//vertical brush
-		if (sizey > 1.25 * sizex && sizey > 1.25 * sizez)
-			brush = 1;
-		else if (sizex > 1.25* sizey || sizez > 1.25*sizey){
-			brush = 0;
+		if (sizecluster > totalSize / 8){
+			if (sizey > sizex && sizey > sizez)
+				brush = 1;
+			if (sizex > sizey || sizez > sizey){
+				brush = 0;
+			}
+			else{
+				brush = 2;
+			}
 		}
 		else{
-			brush = 2;
+			brush = 3;
 		}
 		
 		brushtype.push_back(brush);
@@ -1165,6 +1175,13 @@ static void threeDRenderNoBlur_genBrush(){
 }
 
 static void cloudRender(){
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glEnable(GL_CULL_FACE);
+	////glEnable(GL_STENCIL_TEST);
+	glDepthMask(GL_TRUE);
 	glPointSize(3.0);
 	glLineWidth(3.0);
 	// clear everything
@@ -1379,11 +1396,7 @@ static void aBufferRender_genBrush(float resolutionMult){
 		brushStrokeProgram->setUniform("aBuffer", true);
 		
 		//stroke based rendering parameters for frag-brush-shaders
-		brushStrokeProgram->setUniform("dev", dev);
-		brushStrokeProgram->setUniform("gamma", gamma);
-		brushStrokeProgram->setUniform("sigmax", sigmax);
-		brushStrokeProgram->setUniform("sigmay", sigmay);
-		brushStrokeProgram->setUniform("a", a);
+	
 
 		// bind the texture and set the "tex" uniform in the fragment shader
 
@@ -1395,11 +1408,20 @@ static void aBufferRender_genBrush(float resolutionMult){
 
 		for (int j = 0; j < gVAOs[cloud].size(); j++){
 			glBindVertexArray(gVAOs[cloud][j]);
+			
+			brushStrokeProgram->setUniform("brushType", brushtype[j]);
+			brushStrokeProgram->setUniform("dev", dev);
+			brushStrokeProgram->setUniform("gamma", gamma);
+			brushStrokeProgram->setUniform("sigmax", sigmax);
+			brushStrokeProgram->setUniform("sigmay", sigmay);
+			brushStrokeProgram->setUniform("a", a);
 
+			bool dual = dualLayer && brushtype[j] != 2;
+			brushStrokeProgram->setUniform("dualPaint", dual);
 
 			brushStrokeProgram->setUniform("resolution", resolutions[j] * resolutionMult);
 			float a = 1.0;
-			float s = 1.0;
+			float s = saturation;
 			float ps = 1.0;
 			brushStrokeProgram->setUniform("normalMethod", normalMethod);
 			brushStrokeProgram->setUniform("saturation", s);
@@ -1410,19 +1432,6 @@ static void aBufferRender_genBrush(float resolutionMult){
 
 			checkError("first pass 1");
 			
-			//float res = resolutionMult * patchScale;
-			//a = alph;
-			//s = saturation;
-			//ps = 1.0005;
-			//gProgram->setUniform("saturation", s);
-			//gProgram->setUniform("resolution", resolutions[j] * res);
-			//gProgram->setUniform("alph", a);
-			//gProgram->setUniform("scale", ps);
-			// draw the VAO
-			//glDrawArrays(GL_POINTS, 0, numElements[j]);
-
-			//checkError("first pass 2");
-
 		}
 
 		// unbind the VAO, the program and the texture
@@ -1452,9 +1461,9 @@ static void Render() {
 		}
 	}
 	else{
-		threeDRenderNoBlur_genBrush();
+		//threeDRenderNoBlur_genBrush();
 		//threeDRender();
-		//cloudRender();
+		cloudRender();
 	}
 
     // swap the display buffers (displays what was just drawn)
@@ -1463,6 +1472,7 @@ static void Render() {
 }
 
 float paintCount = 0;
+float dualCount = 0;
 // update the scene based on the time elapsed since last update
 void Update(float secondsElapsed) {
     //rotate the cube
@@ -1592,6 +1602,14 @@ void Update(float secondsElapsed) {
 		else
 			debug = true;
 		dirty = true;
+	}
+	else if (glfwGetKey(gWindow, '7')){
+		dualCount += secondsElapsed;
+		if (dualCount > 1){
+			dualLayer = !dualLayer;
+			dualCount = 0;
+			dirty = true;
+		}
 	}
 
 

@@ -10,6 +10,7 @@ uniform mat4 model;
 uniform float resolution;
 uniform float scale;
 uniform int normalMethod;
+uniform int brushType;
 
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
