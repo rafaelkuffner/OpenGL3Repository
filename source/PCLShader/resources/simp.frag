@@ -5,6 +5,6 @@ out vec4 outColor;
 
 uniform vec4 defaultColor;
 void main(){
-	outColor = defaultColor;
+	outColor = defaultColor ;
 }
 

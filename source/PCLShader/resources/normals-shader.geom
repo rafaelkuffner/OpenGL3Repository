@@ -140,9 +140,24 @@ void main() {
 
 		right =  vec3(-2*h1*h3/pow(h,2), -2*h2*h3/pow(h,2), 1 - 2*pow(h3,2)/pow(h,2));
 		up = vec3(-2*h1*h2/pow(h,2), 1 - 2*pow(h2,2)/pow(h,2), -2*h2*h3/pow(h,2));
+		right = normalize(right);
+		up = normalize(up);
+		break;
+		//---------splat---------//
+	case 6:
+		mat4 MV = camera;
+ 
+	   right = vec3(MV[0][0], 
+						MV[1][0], 
+						MV[2][0]);
+ 
+	   up = vec3(MV[0][1], 
+					 MV[1][1], 
+					 MV[2][1]);
+		right = normalize(right);
+		up = normalize(up);
 		break;
 	}
-	
 	
 	  
     vec3 P = gl_in[0].gl_Position.xyz + vertex[0].normal.xyz*(scale -1);

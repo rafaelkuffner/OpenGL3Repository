@@ -53,8 +53,8 @@
 
 using namespace pcl;
 // constants
-const glm::vec2 SCREEN_SIZE(800, 600);
-#define ABUFFER_SIZE			60
+const glm::vec2 SCREEN_SIZE(1280, 720);
+#define ABUFFER_SIZE			73
 #define ABUFFER_PAGE_SIZE		4
 
 //Because current glew does not define it
@@ -124,13 +124,14 @@ bool dirty = false;
 int cleanframes = 0;
 
 bool debug = false;
+float debugCount = 0.0;
 bool dualLayer = false;
 
 // Brush Stroke Gaussians
-float a = 1.5f;
-float sigmax = 0.15f; float sigmay = 0.12f;
-float gamma = 3.5;
-float dev = 0.12;
+float a = 1.07f;
+float sigmax = 0.142f; float sigmay = 0.0709f;
+float gamma = 2.7;
+float dev = 0.38;
 
 void resetShadersGlobalMacros(){
 	shadersMacroList.clear();
@@ -388,16 +389,16 @@ static std::vector<PointCloud<PointXYZRGB>::Ptr> segmentPointCloud(PointCloud<Po
 	 pcl::RegionGrowingRGB<pcl::PointXYZRGB> reg;
 	 reg.setInputCloud(cloud);
 
-	 //reg.setSearchMethod(tree);
-	 //reg.setDistanceThreshold(100);
-	 //reg.setPointColorThreshold(2.7);
-	 //reg.setRegionColorThreshold(7);
-	 //reg.setMinClusterSize(200);
 	 reg.setSearchMethod(tree);
-	 reg.setDistanceThreshold(1000);
-	 reg.setPointColorThreshold(5.7);
-	 reg.setRegionColorThreshold(7);
-	 reg.setMinClusterSize(500);
+	 reg.setDistanceThreshold(100);
+	 reg.setPointColorThreshold(5.0);
+	 reg.setRegionColorThreshold(14);
+	 reg.setMinClusterSize(200);
+	 //reg.setSearchMethod(tree);
+	 //reg.setDistanceThreshold(1000);
+	 //reg.setPointColorThreshold(5.7);
+	 //reg.setRegionColorThreshold(7);
+	 //reg.setMinClusterSize(500);
 
 	 std::vector <pcl::PointIndices> clusters;
 	 reg.extract(clusters);
@@ -541,7 +542,7 @@ static void LoadCloud(string cname) {
 		float sizez = fabs(max.z - min.z);
 		int brush;
 		//vertical brush
-		if (sizecluster > totalSize / 8){
+		if (sizecluster < totalSize ){
 			if (sizey > sizex && sizey > sizez)
 				brush = 1;
 			if (sizex > sizey || sizez > sizey){
@@ -744,7 +745,8 @@ static void firstPass(float resolutionMult, int outbuf){
 		glDrawBuffers(1, DrawBuffers);
 
 		// clear everything
-		glClearColor(1.0,1.0, 1.0, 1); // black
+		glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+		// black
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// bind the program (the shaders)
@@ -842,7 +844,8 @@ static void firstPass_genBrush(float resolutionMult, int outbuf){
 		glDrawBuffers(1, DrawBuffers);
 
 		// clear everything
-		glClearColor(1.0, 1.0, 1.0, 1); // black
+		glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+		// black
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// bind the program (the shaders)
@@ -859,7 +862,12 @@ static void firstPass_genBrush(float resolutionMult, int outbuf){
 		for (int j = 0; j < gVAOs[cloud].size(); j++){
 			// bind the VAO
 			glBindVertexArray(gVAOs[cloud][j]);
-
+			brushStrokeProgram->setUniform("brushType", brushtype[j]);
+			brushStrokeProgram->setUniform("dev", dev);
+			brushStrokeProgram->setUniform("gamma", gamma);
+			brushStrokeProgram->setUniform("sigmax", sigmax);
+			brushStrokeProgram->setUniform("sigmay", sigmay);
+			brushStrokeProgram->setUniform("a", a);
 			brushStrokeProgram->setUniform("resolution", resolutions[j] * resolutionMult);
 			float a = 1.0;
 			float s = 1.0;
@@ -914,7 +922,8 @@ static void secondPass(int iterations){
 	GLenum db2[1] = { GL_COLOR_ATTACHMENT2 };
 	//pass 2.1, horiz uses fbo text as input
 	glDrawBuffers(1, db1);
-	glClearColor(1.0, 1.0, 1.0, 1);
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(0));
 	blurProgram->setUniform("d", 0);
@@ -922,7 +931,8 @@ static void secondPass(int iterations){
 	
 	//pass 2.2, horiz uses fbo text as input
 	glDrawBuffers(1, db2);
-	glClearColor(1.0, 1.0, 1.0, 1);
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(1));
 	blurProgram->setUniform("d", 1);
@@ -932,7 +942,8 @@ static void secondPass(int iterations){
 	for (int i = 0; i < iterations; i++){
 
 		glDrawBuffers(1, db1);
-		glClearColor(1.0, 1.0, 1.0, 1);
+		glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(2));
 		blurProgram->setUniform("d", 0);
@@ -940,7 +951,8 @@ static void secondPass(int iterations){
 		
 
 		glDrawBuffers(1, db2);
-		glClearColor(1.0, 1.0, 1.0, 1);
+		glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glBindTexture(GL_TEXTURE_2D, fbo.getColorTexture(1));
 		blurProgram->setUniform("d", 1);
@@ -963,7 +975,8 @@ static void thirdPass(){
 	fboGridBig.bind();	
 	GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
 	glDrawBuffers(1, DrawBuffers);
-	glClearColor(0.0,0.0, 0.0, 1);
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -999,7 +1012,8 @@ static void fourthPass(){
 	fboGridSmall.bind();
 	GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
 	glDrawBuffers(1, DrawBuffers);
-	glClearColor(0.0,0.0, 0.0, 1);
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -1031,7 +1045,8 @@ static void finalArtPass(){
 	GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
 	glDrawBuffers(1, DrawBuffers);
 
-	glClearColor(0.0,0.0, 0.0, 1);
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -1055,7 +1070,8 @@ static void finalArtPass(){
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	fbo.unbind();
 
-	glClearColor(0.0,0.0, 0.0, 1);
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -1078,7 +1094,8 @@ static void finalArtPass(){
 	
 }
 static void finalPass(int blend){
-	glClearColor(1.0,1.0, 1.0, 1);
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -1154,6 +1171,7 @@ static void threeDRenderNoBlur(){
 	firstPass(1 + epsilon, 0);
 	checkError("first pass");
 	//pass 2: blur 
+
 	finalPass(0);
 	//debugPass();
 }
@@ -1161,8 +1179,8 @@ static void threeDRenderNoBlur(){
 static void threeDRenderNoBlur_genBrush(){
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glEnable(GL_BLEND);
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	//glEnable(GL_CULL_FACE);
 	////glEnable(GL_STENCIL_TEST);
 	glDepthMask(GL_TRUE);
@@ -1170,7 +1188,10 @@ static void threeDRenderNoBlur_genBrush(){
 	firstPass_genBrush(1 + epsilon, 0);
 	checkError("first pass");
 	//pass 2: blur 
-	finalPass(0);
+	secondPass(1);
+	checkError("third pass");
+
+	finalPass(2);
 	//debugPass();
 }
 
@@ -1179,27 +1200,31 @@ static void cloudRender(){
 	glDepthFunc(GL_LESS);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	checkError("begin2");
 	//glEnable(GL_CULL_FACE);
 	////glEnable(GL_STENCIL_TEST);
 	glDepthMask(GL_TRUE);
-	glPointSize(3.0);
+	glPointSize(2.0);
 	glLineWidth(3.0);
 	// clear everything
-	glClearColor(1.0, 1.0, 1.0, 1); // black
+	glClearColor(pBackgroundColor.r, pBackgroundColor.g, pBackgroundColor.b, pBackgroundColor.a);
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// bind the program (the shaders)
 	g2Program->use();
+
 	// set the "camera" uniform
 	g2Program->setUniform("camera", gCamera.matrix());
+
+
 	// set the camera position uniform
 	//gProgram->setUniform("camPosition", gCamera.position());
 	// set the "model" uniform in the vertex shader, based on the gDegreesRotated global
 	g2Program->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
-	
-	// bind the texture and set the "tex" uniform in the fragment shader
 
-	
+
+	// bind the texture and set the "tex" uniform in the fragment shader
 
 	for (int j = 0; j < gVAOs[cloud].size(); j++){
 		// bind the VAO
@@ -1210,6 +1235,7 @@ static void cloudRender(){
 		glDrawArrays(GL_POINTS, 0, numElements[j]);
 	}
 
+	checkError("draw");
 	// unbind the VAO, the program and the texture
 	glBindVertexArray(0);
 	g2Program->stopUsing();
@@ -1416,7 +1442,7 @@ static void aBufferRender_genBrush(float resolutionMult){
 			brushStrokeProgram->setUniform("sigmay", sigmay);
 			brushStrokeProgram->setUniform("a", a);
 
-			bool dual = dualLayer && brushtype[j] != 2;
+			bool dual = dualLayer;
 			brushStrokeProgram->setUniform("dualPaint", dual);
 
 			brushStrokeProgram->setUniform("resolution", resolutions[j] * resolutionMult);
@@ -1461,9 +1487,9 @@ static void Render() {
 		}
 	}
 	else{
-		//threeDRenderNoBlur_genBrush();
-		//threeDRender();
-		cloudRender();
+		threeDRenderNoBlur_genBrush();
+		/*threeDRender();
+		cloudRender();*/
 	}
 
     // swap the display buffers (displays what was just drawn)
@@ -1476,9 +1502,9 @@ float dualCount = 0;
 // update the scene based on the time elapsed since last update
 void Update(float secondsElapsed) {
     //rotate the cube
-    //const GLfloat degreesPerSecond = -3.0f;
-    //gDegreesRotated += secondsElapsed * degreesPerSecond;
-    //while(gDegreesRotated > 0.0f) gDegreesRotated += 360.0f;
+    /*const GLfloat degreesPerSecond = -2.0f;
+    gDegreesRotated += secondsElapsed * degreesPerSecond;
+    while(gDegreesRotated > 0.0f) gDegreesRotated += 360.0f;*/
 
     //move position of camera based on WASD keys, and XZ keys for up and down
     const float moveSpeed = 0.5; //units per second
@@ -1597,13 +1623,17 @@ void Update(float secondsElapsed) {
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, '6')){
-		if (debug)
-			debug = false;
-		else
-			debug = true;
+		normalMethod = 6;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, '7')){
+		debugCount += secondsElapsed;
+		if (debugCount > 1) {
+			debug = !debug;
+			debugCount = 0;
+			}
+		}
+	else if (glfwGetKey(gWindow, '8')){
 		dualCount += secondsElapsed;
 		if (dualCount > 1){
 			dualLayer = !dualLayer;
@@ -1623,12 +1653,11 @@ void Update(float secondsElapsed) {
 	int state = glfwGetMouseButton(gWindow, GLFW_MOUSE_BUTTON_LEFT);
 	glfwGetCursorPos(gWindow, &mouseX, &mouseY);
 	if (state == GLFW_PRESS){
+		dirty = true;
 		double deltaY = mouseY - lastMousePos.y;
 		double deltaX = mouseX - lastMousePos.x;
 		gCamera.offsetOrientation(mouseSensitivity * (float)deltaY, mouseSensitivity * (float)deltaX);
-		if (deltaY != 0 || deltaX != 0){
-			dirty = true;
-		}
+	
 	}
 	lastMousePos.x = mouseX;
 	lastMousePos.y = mouseY;
@@ -1677,7 +1706,7 @@ void init(){
 	LoadABuffer();
 
 	// load the texture
-	LoadTexture();
+	//LoadTexture();
 
 	// create buffer and fill it with the points of the triangle
 	string str2 = ".ply";
@@ -1724,7 +1753,7 @@ void AppMain() {
         throw std::runtime_error("glfwCreateWindow failed. Can your hardware handle OpenGL 3.2?");
 
     // GLFW settings
-    glfwSetInputMode(gWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    glfwSetInputMode(gWindow, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     glfwSetCursorPos(gWindow, 0, 0);
     glfwSetScrollCallback(gWindow, OnScroll);
 	glfwMakeContextCurrent(gWindow);

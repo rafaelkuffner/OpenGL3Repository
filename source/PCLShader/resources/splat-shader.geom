@@ -14,7 +14,6 @@ in Vertex
 	vec4 normal;
 } vertex[];
      
-out vec2 VertexUV;
 out vec4 VertexColor;
 
 void main() {
@@ -35,25 +34,21 @@ void main() {
      
       vec3 va = P - (right + up) * size;
       gl_Position =  camera * model *vec4(va, 1.0);
-      VertexUV = vec2(0.0, 0.0);
       VertexColor = c;
       EmitVertex();  
       
       vec3 vb = P - (right - up) * size;
       gl_Position = camera * model *vec4(vb, 1.0);
-      VertexUV = vec2(0.0, 1.0);
       VertexColor = c;
       EmitVertex();  
      
       vec3 vd = P + (right - up) * size;
       gl_Position = camera * model *vec4(vd, 1.0);
-      VertexUV = vec2(1.0, 0.0);
       VertexColor = c;
       EmitVertex();  
      
       vec3 vc = P + (right + up) * size;
       gl_Position =camera * model * vec4(vc, 1.0);
-      VertexUV = vec2(1.0, 1.0);
       VertexColor = c;
       EmitVertex();  
       
