@@ -39,6 +39,7 @@ smooth in vec4 fragPos;
 out vec4 outFragColor;
 
 
+const vec4 backgroundColor=vec4(BACKGROUND_COLOR_R, BACKGROUND_COLOR_G, BACKGROUND_COLOR_B, 0.0f);
 
 //Fill local memory array of fragments
 void fillFragmentArray(ivec2 coords, int abNumFrag);
@@ -56,13 +57,21 @@ void main(void) {
 		int abSortedFrags=(int)imageLoad(abufferCounterIncImg, coords).r;
 		
 		if(abNumFrag > 0){
+
+		if(abNumFrag == abSortedFrags){
+			vec4 col =imageLoad(abufferImg, ivec3(coords, abSortedFrags-1));
+			outFragColor=col+backgroundColor*(1.0f-col.a);
+		}else{
 			//Copy fragments in local array
 			fillFragmentArray(coords, abNumFrag);
 			////Sort fragments in local memory array
 			abSortedFrags = bubbleSortIncremental(abNumFrag,abSortedFrags,coords);		
 			////We want to sort and blend fragments
-			outFragColor=resolveAlphaBlend(abNumFrag,abSortedFrags);
+			vec4 col =resolveAlphaBlend(abNumFrag,abSortedFrags);
+			imageStore(abufferImg, ivec3(coords, abSortedFrags-1), col);
 			imageStore(abufferCounterIncImg,coords, ivec4(abSortedFrags,0,0,0));
+			outFragColor=col+backgroundColor*(1.0f-col.a);
+		}
 		}else{
 			//If no fragment, write nothing
 			discard;

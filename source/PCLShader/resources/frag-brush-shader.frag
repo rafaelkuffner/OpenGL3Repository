@@ -195,7 +195,7 @@ vec4 sbrColor1Gaussian(float amp,float g, float sx,float sy, float desv, float s
 	
 	//alpha = max(max(max(max(max(max(max(max(a1,a2),a3),a4),a5),a6),a7),a8),a9);
 	//alpha= a1+a2+a3+a4+a5+a6+a7+a8+a9;
-	alpha = gaussianTheta(uv.x, xc[4],uv.y,yc[4],a,sigmax,sigmay,gamma,0) + 0.001*(a1+a2+a3+a4+a5+a6+a7+a8+a9);
+	alpha = gaussianTheta(uv.x, xc[4],uv.y,yc[4],a,sigmax,sigmay,gamma,0) + 0.0001*(a1+a2+a3+a4+a5+a6+a7+a8+a9);
 	//----------------------------------//
 
 	alpha = alpha>1? 1:alpha;
@@ -258,7 +258,7 @@ void main() {
 		discard;
 	}
 	else{
-		vec4 col1 = sbrColor1Gaussian(a,gamma,sigmax,sigmay,dev,saturation);
+		vec4 col1 = sbrColor9Gaussian(a,gamma,sigmax,sigmay,dev,saturation);
 		if(dualPaint && brushType != 3){
 			vec4 col2 = sbrColor9Gaussian(a*2,gamma-0.3,sigmax/2,sigmay/2,0,saturation+0.35);
 			col1.rgb = col1.rgb*col1.a;

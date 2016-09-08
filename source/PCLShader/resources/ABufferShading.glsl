@@ -7,35 +7,34 @@
 
 #include "ABufferSort.glsl"
 
-const vec4 backgroundColor=vec4(BACKGROUND_COLOR_R, BACKGROUND_COLOR_G, BACKGROUND_COLOR_B, 0.0f);
+//const vec4 backgroundColor=vec4(BACKGROUND_COLOR_R, BACKGROUND_COLOR_G, BACKGROUND_COLOR_B, 0.0f);
 
 
 //Blend fragments front-to-back
 vec4 resolveAlphaBlend(int abNumFrag,int abSortedFrags){
 			
-	vec4 finalColor=vec4(0.0f);
+	
 
 	const float sigma = 30.0f;
 	float thickness=fragmentList[0].w/2.0f;
-
-	for(int i=0; i<abSortedFrags; i++){
-		vec4 frag=fragmentList[i];
-		vec4 col=frag;
-			//uses constant alpha
-
-#if ABUFFER_RESOLVE_ALPHA_CORRECTION
-		if(i%2==abNumFrag%2)
-			thickness=(zList[i+1]-frag.w)*0.5f;
-		col.w=1.0f-pow(1.0f-col.w, thickness* sigma );
-#endif
-
-		col.rgb=col.rgb*col.w;
-
-		finalColor=finalColor+col*(1.0f-finalColor.a);
+	//int i=abSortedFrags-2;
+	//i = i < 0? 0:i;
+	//for(; i<abSortedFrags; i++){
+	int idp = abSortedFrags -2;
+	int id = abSortedFrags -1; 
+	vec4 finalColor;
+	if(idp < 0)
+		finalColor =vec4(0.0f);
+	else
+		finalColor=fragmentList[idp];
+	
+	vec4 col=fragmentList[id];
+	col.rgb=col.rgb*col.w;
+	finalColor=finalColor+col*(1.0f-finalColor.a);
 		
-	}
+	//}
 
-	finalColor=finalColor+backgroundColor*(1.0f-finalColor.a);
+	//finalColor=finalColor+backgroundColor*(1.0f-finalColor.a);
 
 	return finalColor;
 
