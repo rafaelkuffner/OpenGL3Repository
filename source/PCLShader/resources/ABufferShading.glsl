@@ -11,30 +11,22 @@
 
 
 //Blend fragments front-to-back
-vec4 resolveAlphaBlend(int abNumFrag,int abSortedFrags){
+vec4 resolveAlphaBlend(int abNumFrag,int abSortedPrev, int abSortedFrags){
 			
-	
 
 	const float sigma = 30.0f;
 	float thickness=fragmentList[0].w/2.0f;
-	//int i=abSortedFrags-2;
-	//i = i < 0? 0:i;
-	//for(; i<abSortedFrags; i++){
-	int idp = abSortedFrags -2;
-	int id = abSortedFrags -1; 
-	vec4 finalColor;
-	if(idp < 0)
-		finalColor =vec4(0.0f);
-	else
-		finalColor=fragmentList[idp];
-	
-	vec4 col=fragmentList[id];
-	col.rgb=col.rgb*col.w;
-	finalColor=finalColor+col*(1.0f-finalColor.a);
-		
-	//}
+	int i = abSortedPrev;
+	vec4 finalColor=vec4(0.0f);
+	if(i>0) finalColor =fragmentList[i-1];
+	i = i <0? 0:i;
+	for(; i<abSortedFrags; i++){
+		vec4 col=fragmentList[i];
+		col.rgb=col.rgb*col.a;
+		finalColor=finalColor+col*(1.0f-finalColor.a);	
+	}
 
-	//finalColor=finalColor+backgroundColor*(1.0f-finalColor.a);
+//	finalColor=finalColor+backgroundColor*(1.0f-finalColor.a);
 
 	return finalColor;
 

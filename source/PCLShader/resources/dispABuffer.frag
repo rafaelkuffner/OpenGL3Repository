@@ -65,11 +65,11 @@ void main(void) {
 			//Copy fragments in local array
 			fillFragmentArray(coords, abNumFrag);
 			////Sort fragments in local memory array
-			abSortedFrags = bubbleSortIncremental(abNumFrag,abSortedFrags,coords);		
+			int sortedResult = bubbleSortIncremental(abNumFrag,abSortedFrags,coords);		
 			////We want to sort and blend fragments
-			vec4 col =resolveAlphaBlend(abNumFrag,abSortedFrags);
-			imageStore(abufferImg, ivec3(coords, abSortedFrags-1), col);
-			imageStore(abufferCounterIncImg,coords, ivec4(abSortedFrags,0,0,0));
+			vec4 col =resolveAlphaBlend(abNumFrag,abSortedFrags,sortedResult);
+			imageStore(abufferImg, ivec3(coords, sortedResult-1), col);
+			imageStore(abufferCounterIncImg,coords, ivec4(sortedResult,0,0,0));
 			outFragColor=col+backgroundColor*(1.0f-col.a);
 		}
 		}else{
