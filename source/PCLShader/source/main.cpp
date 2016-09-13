@@ -16,6 +16,7 @@
  limitations under the License.
  */
 
+//#define pcl180
 #include "platform.hpp"
 
 // third-party libraries
@@ -42,19 +43,26 @@
 #include <pcl/io/vtk_lib_io.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/features/normal_3d.h>
-#include <pcl/conversions.h>
+#ifdef pcl180
+	#include <pcl/conversions.h>
+#endif 
+
 #include <pcl/common/transforms.h>
 
 // region growing segmentation
 #include <pcl/filters/passthrough.h>
-#include <pcl/segmentation/region_growing.h>
+#ifdef pcl180
+	#include <pcl/segmentation/region_growing.h>
+	#include <pcl/segmentation/region_growing_rgb.h>
+#endif
 #include <pcl/filters/extract_indices.h>
-#include <pcl/segmentation/region_growing_rgb.h>
-
+#ifndef pcl180
+	#include <pcl/segmentation/extract_clusters.h>
+#endif
 using namespace pcl;
 // constants
 const glm::vec2 SCREEN_SIZE(1280, 720);
-#define ABUFFER_SIZE			73
+#define ABUFFER_SIZE			65
 #define ABUFFER_PAGE_SIZE		4
 
 //Because current glew does not define it
@@ -384,16 +392,15 @@ double computeCloudResolution(const pcl::PointCloud<PointXYZRGB>::ConstPtr &clou
 static std::vector<PointCloud<PointXYZRGB>::Ptr> segmentPointCloud(PointCloud<PointXYZRGB>::Ptr cloud){
 
 	pcl::search::Search <pcl::PointXYZRGB>::Ptr tree = boost::shared_ptr<pcl::search::Search<pcl::PointXYZRGB> >(new pcl::search::KdTree<pcl::PointXYZRGB>);
-	
-	
-	 pcl::RegionGrowingRGB<pcl::PointXYZRGB> reg;
-	 reg.setInputCloud(cloud);
-
-	 reg.setSearchMethod(tree);
-	 reg.setDistanceThreshold(100);
-	 reg.setPointColorThreshold(5.0);
-	 reg.setRegionColorThreshold(14);
-	 reg.setMinClusterSize(200);
+	std::vector<PointCloud<PointXYZRGB>::Ptr> results;
+#ifdef pcl180
+	pcl::RegionGrowingRGB<pcl::PointXYZRGB> reg;
+	reg.setDistanceThreshold(100);
+	reg.setPointColorThreshold(5.0);
+	reg.setRegionColorThreshold(14);
+	reg.setInputCloud(cloud);
+	reg.setSearchMethod(tree);
+	reg.setMinClusterSize(200);
 	 //reg.setSearchMethod(tree);
 	 //reg.setDistanceThreshold(1000);
 	 //reg.setPointColorThreshold(5.7);
@@ -402,7 +409,6 @@ static std::vector<PointCloud<PointXYZRGB>::Ptr> segmentPointCloud(PointCloud<Po
 
 	 std::vector <pcl::PointIndices> clusters;
 	 reg.extract(clusters);
-	 std::vector<PointCloud<PointXYZRGB>::Ptr> results;
 	 for (std::vector<pcl::PointIndices>::const_iterator it = clusters.begin(); it != clusters.end(); ++it)
 	 {
 		 pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -417,6 +423,9 @@ static std::vector<PointCloud<PointXYZRGB>::Ptr> segmentPointCloud(PointCloud<Po
 		 float b = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
 		 defColors.push_back(glm::vec4(r, g, b, 1.0));
 	 }
+#else
+	results.push_back(cloud);
+#endif
 	 return results;
 }
 
@@ -428,8 +437,12 @@ void loadPly(PointCloud<PointXYZRGB>::Ptr cloud, std::string path){
 		io::loadPolygonFilePLY(ResourcePath(path), mesh);
 	else
 		io::loadPolygonFilePLY(path, mesh);
-
+#ifdef pcl180
 	fromPCLPointCloud2(mesh.cloud, *cloud);
+#endif
+#ifndef pcl180
+	pcl::fromROSMsg(mesh.cloud, *cloud);
+#endif
 }
 
 void readKinectCloudDisk(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::string pointCloudPath,std::string outpath){
