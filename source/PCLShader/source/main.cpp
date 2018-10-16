@@ -16,7 +16,7 @@
  limitations under the License.
  */
 
-//#define pcl180
+#define pcl180
 #include "platform.hpp"
 
 // third-party libraries
@@ -62,7 +62,7 @@
 using namespace pcl;
 // constants
 const glm::vec2 SCREEN_SIZE(1280, 720);
-#define ABUFFER_SIZE			65
+#define ABUFFER_SIZE			70
 #define ABUFFER_PAGE_SIZE		4
 
 //Because current glew does not define it
@@ -103,10 +103,10 @@ std::vector<float> resolutions;
 unsigned int rtt_vbo, rtt_ibo, rtt_vao;
 int wWidth, wHeight;
 int gridSizeBig, gridSizeSmall;
-bool paint = true;
+bool paint = false;
 int cloud = 0;
 std::vector<glm::vec4> defColors;
-glm::vec4 pBackgroundColor(1, 1, 1, 1);
+glm::vec4 pBackgroundColor(0.1, 0.1,0.1, 1);
 float alph = 1.0;
 float saturation = 1.2;
 float epsilon = 0.3;
@@ -485,6 +485,7 @@ void readKinectCloudDisk(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud, std::stri
 static float CloudPreprocess(std::vector<PointCloud<PointXYZRGB>::Ptr> &cloud_clusters,string cname){
 
 	PointCloud<PointXYZRGB>::Ptr cloud(new PointCloud<PointXYZRGB>);
+	//readKinectCloudDisk(cloud, cname, "test.ply");
 	loadPly(cloud,cname );
 
 	Eigen::Vector4f centroid;
@@ -608,7 +609,7 @@ static void LoadCloud(string cname) {
 		glBufferData(GL_ARRAY_BUFFER, sizeof(float)*numElements[k]*4, varray, GL_STATIC_DRAW);
 		// connect the xyz to the "vert" attribute of the vertex shader
 		glEnableVertexAttribArray(gProgram->attrib("vert"));
-		glVertexAttribPointer(gProgram->attrib("vert"), 4, GL_FLOAT, GL_FALSE, 4*sizeof(GLfloat), NULL);
+		glVertexAttribPointer(gProgram->attrib("vert"), 4, GL_FLOAT, GL_FALSE,0, NULL);
 
 
 		glGenBuffers(1, &gVBO2);
@@ -616,7 +617,7 @@ static void LoadCloud(string cname) {
 		glBufferData(GL_ARRAY_BUFFER, sizeof(float)*numElements[k] * 4, carray, GL_STATIC_DRAW);
 		// connect the color to the "col" attribute of the vertex shader
 		glEnableVertexAttribArray(gProgram->attrib("col"));
-		glVertexAttribPointer(gProgram->attrib("col"), 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), NULL);
+		glVertexAttribPointer(gProgram->attrib("col"), 4, GL_FLOAT, GL_FALSE,0, NULL);
 		
 
 		glGenBuffers(1, &gVBO3);
@@ -624,7 +625,7 @@ static void LoadCloud(string cname) {
 		glBufferData(GL_ARRAY_BUFFER, sizeof(float)*numElements[k] * 4, narray, GL_STATIC_DRAW);
 		// connect the normal to the "norm" attribute of the vertex shader
 		glEnableVertexAttribArray(gProgram->attrib("norm"));
-		glVertexAttribPointer(gProgram->attrib("norm"), 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), NULL);
+		glVertexAttribPointer(gProgram->attrib("norm"), 4, GL_FLOAT, GL_FALSE, 0, NULL);
 
 
 	}
@@ -767,7 +768,7 @@ static void firstPass(float resolutionMult, int outbuf){
 		// set the "camera" uniform
 		gProgram->setUniform("camera", gCamera.matrix());
 		// set the camera position uniform
-		//gProgram->setUniform("camPosition", gCamera.position());
+		gProgram->setUniform("cameraPosition", gCamera.position());
 		// set the "model" uniform in the vertex shader, based on the gDegreesRotated global
 		gProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
 
@@ -864,7 +865,8 @@ static void firstPass_genBrush(float resolutionMult, int outbuf){
 		// bind the program (the shaders)
 		brushStrokeProgram->use();
 		// set the "camera" uniform
-		brushStrokeProgram->setUniform("camera", gCamera.matrix());
+		glm::mat4 matrix = gCamera.matrix();
+		brushStrokeProgram->setUniform("camera", matrix);
 		// set the "model" uniform in the vertex shader, based on the gDegreesRotated global
 		brushStrokeProgram->setUniform("model", glm::rotate(glm::mat4(), glm::radians(gDegreesRotated), glm::vec3(0, 1, 0)));
 
@@ -1515,10 +1517,10 @@ float dualCount = 0;
 // update the scene based on the time elapsed since last update
 void Update(float secondsElapsed) {
     //rotate the cube
-    /*const GLfloat degreesPerSecond = -2.0f;
-    gDegreesRotated += secondsElapsed * degreesPerSecond;
-    while(gDegreesRotated > 0.0f) gDegreesRotated += 360.0f;*/
-
+    const GLfloat degreesPerSecond = -90.0f;
+   /* gDegreesRotated += secondsElapsed * degreesPerSecond;
+    while(gDegreesRotated > 0.0f) gDegreesRotated += 360.0f;
+*/
     //move position of camera based on WASD keys, and XZ keys for up and down
     const float moveSpeed = 0.5; //units per second
     if(glfwGetKey(gWindow, 'S')){
@@ -1554,47 +1556,47 @@ void Update(float secondsElapsed) {
 	}
 	else if (glfwGetKey(gWindow, 'F')){
 		//alph += 0.01;
-		dev += 0.01;
+		dev += secondsElapsed * 0.1;
 		dirty = true;
 		//if (alph > 1) alph = 1;
 	}
 	else if (glfwGetKey(gWindow, 'V')){
 		//alph -= 0.01;
-		dev -= 0.01;
+		dev -= secondsElapsed *0.1;
 		dirty = true;
 		//if (alph < 0) alph = 0;
 	}
 	else if (glfwGetKey(gWindow, 'G')){
 		//saturation += 0.01;
-		gamma += 0.1;
+		gamma += secondsElapsed * 0.1;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'B')){
 		//saturation -= 0.01;
-		gamma -= 0.1;
+		gamma -= secondsElapsed *0.1;
 		dirty = true;
 		//if (saturation < 0) saturation = 0;
 	}
 	else if (glfwGetKey(gWindow, 'H')){
-		epsilon += 0.01;
+		epsilon += secondsElapsed * 0.1;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'N')){
-		epsilon -= 0.01;
+		epsilon -= secondsElapsed * 0.1;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'J')){
 		//patchScale += 0.001;
-		sigmax += 0.001;
+		sigmax += secondsElapsed * 0.1;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'M')){
 		//patchScale -= 0.001;
-		sigmax -= 0.001;
+		sigmax -= secondsElapsed *0.1;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'K')){
-		sigmay += 0.001;
+		sigmay += secondsElapsed *0.1;
 		dirty = true;
 		//style++;
 		//if (style > 30){
@@ -1603,15 +1605,15 @@ void Update(float secondsElapsed) {
 	//	}
 	}
 	else if (glfwGetKey(gWindow, 'L')){
-		sigmay -= 0.001;
+		sigmay -= secondsElapsed * 0.1;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'I')){
-		a += 0.01;
+		a += secondsElapsed *  0.5;
 		dirty = true;
 	}
 	else if (glfwGetKey(gWindow, 'O')){
-		a -= 0.01;
+		a -= secondsElapsed * 0.5;
 		dirty = true;
 	}
 
@@ -1639,14 +1641,18 @@ void Update(float secondsElapsed) {
 		normalMethod = 6;
 		dirty = true;
 	}
-	else if (glfwGetKey(gWindow, '7')){
+	else if (glfwGetKey(gWindow, '7')) {
+		normalMethod = 7;
+		dirty = true;
+	}
+	else if (glfwGetKey(gWindow, '8')){
 		debugCount += secondsElapsed;
 		if (debugCount > 1) {
 			debug = !debug;
 			debugCount = 0;
 			}
 		}
-	else if (glfwGetKey(gWindow, '8')){
+	else if (glfwGetKey(gWindow, '9')){
 		dualCount += secondsElapsed;
 		if (dualCount > 1){
 			dualLayer = !dualLayer;
@@ -1723,16 +1729,16 @@ void init(){
 
 	// create buffer and fill it with the points of the triangle
 	string str2 = ".ply";
-	std::size_t found = cloudName.find(str2);
-	if (found == std::string::npos){
-		vector<string> clouds = GetFilesInDirectory(cloudName);
-		for (int i = 0; i < clouds.size(); i++){
-			LoadCloud(clouds[i]);
-		}
-	}
-	else{
+	//std::size_t found = cloudName.find(str2);
+	//if (found == std::string::npos){
+	//	vector<string> clouds = GetFilesInDirectory(cloudName);
+	//	for (int i = 0; i < clouds.size(); i++){
+	//		LoadCloud(clouds[i]);
+	//	}
+	//}
+	//else{
 		LoadCloud(cloudName);
-	}
+	//}
 
 	LoadRTTVariables();
 	//create frame buffer

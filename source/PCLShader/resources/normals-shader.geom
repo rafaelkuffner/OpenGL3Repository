@@ -24,6 +24,8 @@ in Vertex
      
 out vec2 VertexUV;
 out vec4 VertexColor;
+out vec4 VertexTangent;
+
 smooth out vec4 fragPos;
 flat out int tex;
 
@@ -45,8 +47,8 @@ void main() {
    //float size = 0.002;
   
    float size = resolution;
-	vec3 right;
-	vec3 up;
+	vec3 right = vec3(0,0,0);
+	vec3 up = vec3(0,0,0);
 	vec4 c = vertex[0].color;
 	vec3 normal = vertex[0].normal.xyz;
 	
@@ -58,11 +60,11 @@ void main() {
 	theta1 = mod(rand(vec2(gl_in[0].gl_Position.x,gl_in[0].gl_Position.x))*1000,PI3)-PI6;
 	theta2 = mod(rand(vec2(gl_in[0].gl_Position.y,gl_in[0].gl_Position.y))*1000,PI3)-PI6;
 	if(abs(theta2-theta1)> PI6){
-		theta2 = theta1 < 0? theta2 = theta1+PI6:theta1-PI6;
+		theta2 = theta1 < 0? theta1+PI6:theta1-PI6;
 	}
 	theta3 = mod(rand(vec2(gl_in[0].gl_Position.z,gl_in[0].gl_Position.z))*1000,PI3)-PI6;
 	if(abs(theta3-theta2)> PI6){
-		theta3 = theta2 < 0? theta3 = theta2+PI6:theta2-PI6;
+		theta3 = theta2 < 0? theta2+PI6:theta2-PI6;
 	} 
 	 switch(normalMethod){
 	 
@@ -157,8 +159,22 @@ void main() {
 		right = normalize(right);
 		up = normalize(up);
 		break;
+	case 7: 
+		if(nz < -0.9999999f) // Handle the singularity
+		 {
+			right = vec3( 0.0f, -1.0f, 0.0f);
+			 up = vec3(-1.0f, 0.0f, 0.0f);
+		 }
+		 else{
+			 const float a = 1.0f / (1.0f + nz);
+			 const float b = -nx*ny*a;
+			 right = vec3(1.0f - nx*nx*a, b, -nx);
+			 up = vec3(b, 1.0f - ny*ny*a, -ny);
+		 }
+		normalize(right);
+		normalize(up);
+		break;
 	}
-	
 	  
     vec3 P = gl_in[0].gl_Position.xyz + vertex[0].normal.xyz*(scale -1);
      
@@ -168,6 +184,7 @@ void main() {
 	gl_Position = fragPos;
     VertexUV = vec2(0.0, 0.0);
     VertexColor = c;
+	VertexTangent = vec4(right,1.0);
     EmitVertex();  
       
     vec3 vb = P - (right - up) * size;
@@ -175,6 +192,7 @@ void main() {
 	gl_Position = fragPos;
     VertexUV = vec2(0.0, tiling);
     VertexColor = c;
+	VertexTangent = vec4(right,1.0);
     EmitVertex();  
      
     vec3 vd = P + (right - up) * size;
@@ -182,6 +200,7 @@ void main() {
 	gl_Position = fragPos;
     VertexUV = vec2(tiling, 0.0);
     VertexColor = c;
+	VertexTangent = vec4(right,1.0);
     EmitVertex();  
      
     vec3 vc = P + (right + up) * size;
@@ -189,6 +208,7 @@ void main() {
 	gl_Position = fragPos;
     VertexUV = vec2(tiling, tiling);
     VertexColor = c;
+	VertexTangent = vec4(right,1.0);
     EmitVertex();  
       
     EndPrimitive();  

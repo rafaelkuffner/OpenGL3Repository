@@ -19,6 +19,7 @@
 smooth in vec4 fragPos;
 in vec4 VertexColor;
 in vec2 VertexUV;
+in vec4 VertexTangent;
 
 in float theta1;
 in float theta2;
@@ -208,7 +209,7 @@ vec4 sbrColor1Gaussian(float amp,float g, float sx,float sy, float desv, float s
 	}if(t.a ==	0 && aBuffer){
 		return vec4(0.0f);
 	}
-	t = t*VertexColor;
+	t = t*VertexTangent + (VertexColor*0.0001);
 	if(aBuffer)
 		t.a *= alph;
 	else
